@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 {- Main.hs; Mun Hon Cheong (mhch295@cse.unsw.edu.au) 2005
 
 Main module

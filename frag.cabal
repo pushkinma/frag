@@ -10,7 +10,7 @@ maintainer:          dons@galois.com
 category:            Game
 build-type:          Simple
 cabal-version:       >=1.10
-data-files:          README,
+data-files:          README.md,
                      README-leveleg
                      -- Graphics files
                      leveleg.bsp,
