@@ -7,6 +7,8 @@ Differences:
 * Building with no warnings with [GHC 8.0](https://www.haskell.org/ghc/) (7.10 too)
 * AFRP replaced by external library [Yampa](https://wiki.haskell.org/Yampa)
 
-Building: `stack install`
+Building:
+`stack install`
 
-Usage: `frag-exe leveleg`
+Usage:
+`frag-exe leveleg`
