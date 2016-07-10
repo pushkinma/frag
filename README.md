@@ -1,4 +1,4 @@
-# Frag
+![Haskell frag 3D-shooter screenshot](/Screenshot.png)
 
 Patched version of [frag](https://wiki.haskell.org/Frag)
 
@@ -10,5 +10,3 @@ Differences:
 Building: `stack install`
 
 Usage: $ `frag-exe leveleg`
-
-![Haskell frag 3D-shooter screenshot](/Screenshot.png)
