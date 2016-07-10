@@ -10,3 +10,5 @@ Differences:
 Building: `stack install`
 
 Usage: $ `frag-exe leveleg`
+
+![Haskell frag 3D-shooter screenshot](/Screenshot.png)
