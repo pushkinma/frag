@@ -1,0 +1,145 @@
+name:                frag
+version:             1.2.0.0
+synopsis:            A 3-D First Person Shooter Game
+description:         A fast and basic reimplementation of the Quake III Arena engine
+                     in Haskell; supports many Quake III Arena maps.
+license:             GPL
+license-file:        LICENSE
+author:              Mun Hon Cheong
+maintainer:          dons@galois.com
+category:            Game
+build-type:          Simple
+cabal-version:       >=1.10
+data-files:          README,
+                     README-leveleg
+                     -- Graphics files
+                     leveleg.bsp,
+                     leveleg.cfg,
+                     leveleg.med
+                     tga/models/players/klesk/lower_default.skin,
+                     tga/models/players/klesk/lower.md3
+                     tga/models/players/klesk/head_default.skin,
+                     tga/models/players/klesk/l_red.tga
+                     tga/models/players/klesk/h_red.tga,
+                     tga/models/players/klesk/animation.cfg
+                     tga/models/players/klesk/head.md3,
+                     tga/models/players/klesk/u_red.tga
+                     tga/models/players/klesk/upper_default.skin,
+                     tga/models/players/klesk/upper.md3
+                     tga/models/weapons/railgun.shader,
+                     tga/models/weapons/railgun.md3
+                     tga/font.tga,
+                     tga/7.tga,
+                     tga/3.tga,
+                     tga/4.tga,
+                     tga/5.tga,
+                     tga/2.tga
+                     tga/crosshaira.tga,
+                     tga/0.tga,
+                     tga/hyphen.tga,
+                     tga/9.tga,
+                     tga/1.tga,
+                     tga/6.tga
+                     tga/tga/models/weapons/railgun4.tga,
+                     tga/tga/models/weapons/railgun2.tga
+                     tga/tga/models/weapons/railgun.tga,
+                     tga/tga/models/weapons/railgun3.tga
+                     tga/8.tga,
+                     tga/textures/gothic_floor/q1metal7_99.tga
+                     tga/textures/gothic_floor/largerblock3b3.tga,
+                     tga/textures/gothic_floor/largerblock3b3dim.tga
+                     tga/textures/e7/e7brickfloor01.tga,
+                     tga/textures/e7/e7bmtrim.tga
+                     tga/textures/e7/e7bricks01.tga,
+                     tga/textures/e7/e7sbrickfloor.tga
+                     tga/textures/e7/e7panelwood.tga,
+                     tga/textures/e7/e7swindow.tga
+                     tga/textures/e7/e7panelwood2.tga,
+                     tga/textures/organics/dirt2.tga
+                     tga/textures/common/trigger.tga,
+                     tga/textures/common/clip.tga
+                     tga/textures/skies/nitesky.tga,
+                     tga/textures/gothic_trim/border7.tga
+                     tga/textures/gothic_trim/pitted_rust3.tga,
+                     tga/textures/gothic_trim/km_arena1tower4.tga
+                     tga/textures/gothic_trim/wood2.tga,
+                     tga/textures/gothic_trim/metalsupport4i_bit.tga
+                     tga/textures/gothic_light/ironcrosslt2_10000.tga,
+                     tga/textures/stone/pjrock6.tga
+                     tga/textures/base_support/flat1_1.tga,
+                     tga/textures/skin/pjwal2k.tga
+                     tga/textures/gothic_wall/slateroofc.tga,
+                     tga/textures/gothic_wall/proto_brik.tga
+                     tga/textures/gothic_wall/oct20c.tga,
+                     tga/textures/evil8_floor/e8cretefloor01b.tga
+                     tga/textures/gothic_block/killblock.tga,
+                     tga/textures/gothic_block/killblock_j2.tga
+                     tga/textures/gothic_block/blocks15_blue.tga,
+                     tga/textures/gothic_block/blocks11b.tga
+                     tga/textures/gothic_block/blocks18d.tga,
+                     tga/textures/gothic_block/blocks18b.tga
+
+library
+  hs-source-dirs:      src
+                       -- External libs
+                     , lib
+  exposed-modules:     BitSet
+                     , BSP
+                     , Camera
+                     , Collision
+                     , Command
+                     , Curves
+                     , Frustum
+                     , Game
+                     , GameInputParser
+                     , HGL
+                     , IdentityList
+                     , MapCfg
+                     , Matrix
+                     , MD3
+                     , Object
+                     , ObjectBehavior
+                     , PhysicalDimensions
+                     , Quaternion
+                     , Raybox
+                     , Render
+                     , TextureFonts
+                     , Textures
+                     , TGA
+                     , Visibility
+  ghc-options:         -O2 -funbox-strict-fields -optc-O2
+  build-depends:       base >= 4.7 && < 5
+                     , GLUT
+                     , OpenGL
+                     , Yampa
+                     , array
+                     , random
+                     , hashtables
+                     , deepseq
+  default-language:    Haskell2010
+
+executable frag-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -O2 -funbox-strict-fields -optc-O2
+  build-depends:       base
+                     , ghc
+                     , frag
+                     , GLUT
+                     , OpenGL
+                     , Yampa
+                     , hashtables
+                     , deepseq
+  default-language:    Haskell2010
+
+test-suite frag-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , frag
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
