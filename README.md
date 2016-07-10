@@ -8,7 +8,7 @@ Differences:
 * AFRP replaced by external library [Yampa](https://wiki.haskell.org/Yampa)
 
 Building:
-`stack install`
+  `stack install`
 
 Usage:
-`frag-exe leveleg`
+  `frag-exe leveleg`
