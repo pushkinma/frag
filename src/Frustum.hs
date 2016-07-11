@@ -17,7 +17,7 @@ type Frustum = (FPlane,FPlane,FPlane,FPlane,FPlane,FPlane)
 
 normalisePlane :: FPlane -> IO FPlane
 normalisePlane (x,y,z,d) = do
-   let reciMag = (1/(sqrt(x*x+y*y+z*z)))
+   let reciMag = 1/sqrt(x*x+y*y+z*z)
    return (x*reciMag, y*reciMag, z*reciMag, d*reciMag)
 
 
@@ -30,7 +30,7 @@ getFrustum = do
     m10,m11,m12,m13,
     m20,m21,m22,m23,
     m30,m31,m32,m33] <- getMatrixComponents ColumnMajor mvMatrix
-   pjMatrix <- get (matrix (Just (Projection))) :: IO (GLmatrix GLdouble)
+   pjMatrix <- get (matrix (Just Projection)) :: IO (GLmatrix GLdouble)
    [p00,p01,p02,p03,
     p10,p11,p12,p13,
     p20,p21,p22,p23,
@@ -99,14 +99,14 @@ getFrustum = do
 -- tests if a box intersects a plane
 testBox :: (Double,Double,Double)->(Double,Double,Double) -> FPlane ->Bool
 testBox (x,y,z) (x2,y2,z2) (a,b,c,d)
-   | (a * x  + b * y  + c * z  + d > 0) = True
-   | (a * x2 + b * y  + c * z  + d > 0) = True
-   | (a * x  + b * y2 + c * z  + d > 0) = True
-   | (a * x2 + b * y2 + c * z  + d > 0) = True
-   | (a * x  + b * y  + c * z2 + d > 0) = True
-   | (a * x2 + b * y  + c * z2 + d > 0) = True
-   | (a * x  + b * y2 + c * z2 + d > 0) = True
-   | (a * x2 + b * y2 + c * z2 + d > 0) = True
+   | a * x  + b * y  + c * z  + d > 0 = True
+   | a * x2 + b * y  + c * z  + d > 0 = True
+   | a * x  + b * y2 + c * z  + d > 0 = True
+   | a * x2 + b * y2 + c * z  + d > 0 = True
+   | a * x  + b * y  + c * z2 + d > 0 = True
+   | a * x2 + b * y  + c * z2 + d > 0 = True
+   | a * x  + b * y2 + c * z2 + d > 0 = True
+   | a * x2 + b * y2 + c * z2 + d > 0 = True
    | otherwise = False
 
 

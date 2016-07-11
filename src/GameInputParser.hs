@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+
 
 {- $Id: GameInputParser.hsg.hs,v 1.2 2003/11/10 21:28:58 antony Exp $
 ******************************************************************************
@@ -39,9 +39,8 @@ module GameInputParser (
 
 ) where
 
-import Data.Maybe (isJust)
-import qualified HGL as HGL (Event(..))
-import qualified HGL as HGL (Point(..))
+import Data.Maybe
+import qualified HGL
 import FRP.Yampa.Core
 import FRP.Yampa.Utilities
 import FRP.Yampa.Geometry
@@ -69,9 +68,9 @@ data GameInput = GameInput {
 
 
 parseWinInput :: SF (WinInput,WinInput) GameInput
-parseWinInput = (wiToCmd <<< (arr fst))&&&
-                     (wiToPDS <<<(arr snd)) &&&
-                     (wiToKs <<< (arr fst)) &&& (gDt)
+parseWinInput = (wiToCmd <<< arr fst)&&&
+                     (wiToPDS <<<arr snd) &&&
+                     (wiToKs <<< arr fst) &&& gDt
                      >>^ \((cmdStr, cmd), (pds, (ks,(dt,t)))) ->
                         GameInput {giCmdStr = cmdStr,
                                     giCmd    = cmd,
@@ -92,19 +91,19 @@ command = giCmd ^>> notYet
 
 gDt :: SF a (Double,Double)
 gDt
-  = (arr (\_ -> 1) >>>
+  = arr (const 1) >>>
           (imIntegral 0 >>> arr (\ t -> (t, t))) >>>
-         (first ((iPre 0) <<< identity) >>> arr (\ (lt, t) -> (t - lt + 0.005,t))))
+         (first (iPre 0 <<< identity) >>> arr (\ (lt, t) -> (t - lt + 0.005,t)))
 
 -- Continuous parser feed back.
 cmdString :: SF GameInput String
 cmdString = arr giCmdStr
 
 getT :: SF GameInput Time
-getT = (iPre 0) <<< (arr giT)
+getT = iPre 0 <<< arr giT
 
 getDt :: SF GameInput Time
-getDt = (iPre 0) <<< (arr giDt)
+getDt = iPre 0 <<< arr giDt
 
 ptrPos :: SF GameInput Position2
 ptrPos = arr (pdsPos . giPDS)
@@ -145,7 +144,7 @@ dragStart = (giPDS >>> pdsDrag) ^>> edgeBy detectStart (Just undefined)
 
 dragStop :: SF GameInput (Event Distance2)
 dragStop = ((giPDS >>> pdsDrag) ^>> edgeBy detectStop Nothing) &&& dragVec
-                 >>^ \(e, dv) -> e `tag` dv
+                 >>^ uncurry tag
     where
            detectStop (Just _) Nothing = Just ()
            detectStop _    _     = Nothing
@@ -177,7 +176,7 @@ dragging = arr (giPDS >>> pdsDrag >>> isJust)
 wiToKs :: SF WinInput (Event (Char,Bool))
 wiToKs = arr (mapFilterE getKs)
     where
-           getKs (HGL.Char {HGL.char=c, HGL.isDown = ks}) = Just (c,ks)
+           getKs HGL.Char {HGL.char=c, HGL.isDown = ks} = Just (c,ks)
            getKs _                        = Nothing
 
 
@@ -186,8 +185,8 @@ wiToCmd = arr (mapFilterE selChar)
                 >>> (accumBy scanChar (undefined,scanCmds) >>^ fmap fst >>^ splitE)
                 >>> hold "" *** arr (mapFilterE id)
     where
-           scanChar (_, S cont) c = cont c
-           selChar (HGL.Char {HGL.char=c, HGL.isDown = True}) = Just c
+           scanChar (_, S cont) = cont
+           selChar HGL.Char {HGL.char=c, HGL.isDown = True} = Just c
            selChar _                        = Nothing
 
 
@@ -228,7 +227,7 @@ scanCmds = scanCmd cmds
 --              continuation.
 
 scanCmd :: [(String, Cont String)] -> Scanner
-scanCmd cmds = scanSubCmd "" cmds
+scanCmd = scanSubCmd ""
 
 
 -- Scan one subcommand/keyword argument.
@@ -318,39 +317,39 @@ initPDS = PDState {
 
 
 wiToPDS :: SF WinInput PDState
-wiToPDS = (accumHoldBy nextPDS initPDS)
+wiToPDS = accumHoldBy nextPDS initPDS
 
 
 -- Compute next pointing device state.
 nextPDS :: PDState -> HGL.Event -> PDState
 --nextPDS pds (HGL.Key {}) = pds                          -- Currently we ignore keys.
-nextPDS pds (HGL.Button {HGL.pt = p, HGL.isLeft = True, HGL.isDown = True}) =
+nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = True, HGL.isDown = True} =
     -- Left button pressed.
     pds {pdsPos = p', pdsDragVec = dv, pdsLeft = Just p'}
     where
            p' = gPointToPosition2 p
            dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) (pdsDrag pds)
-nextPDS pds (HGL.Button {HGL.pt = p, HGL.isLeft = True, HGL.isDown = False}) =
+nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = True, HGL.isDown = False} =
     -- Left button released.
     pds {pdsPos = p', pdsDragVec = dv, pdsLeft = Nothing, pdsDrag = md}
     where
            p' = gPointToPosition2 p
            md = maybe Nothing (const (pdsDrag pds)) (pdsRight pds)
            dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) md
-nextPDS pds (HGL.Button {HGL.pt = p, HGL.isLeft = False, HGL.isDown = True}) =
+nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = False, HGL.isDown = True} =
     -- Right button pressed.
     pds {pdsPos = p', pdsDragVec = dv, pdsRight = Just p'}
     where
            p' = gPointToPosition2 p
            dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) (pdsDrag pds)
-nextPDS pds (HGL.Button {HGL.pt = p, HGL.isLeft = False, HGL.isDown = False}) =
+nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = False, HGL.isDown = False} =
     -- Right button released.
     pds {pdsPos = p', pdsDragVec = dv, pdsRight = Nothing, pdsDrag = md}
     where
            p' = gPointToPosition2 p
            md = maybe Nothing (const (pdsDrag pds)) (pdsLeft pds)
            dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) md
-nextPDS pds (HGL.MouseMove {HGL.pt = p}) =
+nextPDS pds HGL.MouseMove {HGL.pt = p} =
     -- Mouse move.
     pds {pdsPos = p', pdsDragStartPos = dsp, pdsDragVec = dv, pdsDrag = md}
     where
@@ -358,12 +357,12 @@ nextPDS pds (HGL.MouseMove {HGL.pt = p}) =
            md = case pdsLeft pds of
                     mlp@(Just _) -> mlp
                     Nothing       -> pdsRight pds
-           dsp = maybe (pdsDragStartPos pds) id md
+           dsp = fromMaybe (pdsDragStartPos pds) md
            dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) md
 nextPDS pds _ = pds                     -- Ignore unknown events.
 
 gPointToPosition2 :: HGL.Point -> Position2
-gPointToPosition2 (HGL.Point (x, y)) = (Point2 (fromIntegral x) (fromIntegral y))
+gPointToPosition2 (HGL.Point (x, y)) = Point2 (fromIntegral x) (fromIntegral y)
 ------------------------------------------------------------------------------
 -- General utilities
 ------------------------------------------------------------------------------

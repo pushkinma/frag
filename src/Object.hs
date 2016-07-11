@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- Object.hs; Mun Hon Cheong (mhch295@cse.unsw.edu.au) 2005
 
@@ -38,8 +38,8 @@ data ObjInput = ObjInput {
 data ObjOutput = ObjOutput {
     ooObsObjState :: !ObsObjState,
     ooSendMessage :: !(Event [(ILKey,(ILKey,Message))]),
-    ooKillReq      :: (Event ()),
-    ooSpawnReq    :: (Event [ILKey->Object])
+    ooKillReq      :: Event (),
+    ooSpawnReq    :: Event [ILKey->Object]
 }
 
 data Message = Coord !(Double,Double,Double) |
@@ -96,18 +96,18 @@ instance NFData Camera
 instance NFData ObsObjState
 
 isRay :: ObsObjState -> Bool
-isRay (OOSRay {}) = True
+isRay OOSRay {} = True
 isRay _            = False
 
 isCamera :: ObsObjState -> Bool
-isCamera (OOSCamera {}) = True
+isCamera OOSCamera {} = True
 isCamera _                      = False
 
 isAICube :: ObsObjState -> Bool
-isAICube (OOSAICube {}) = True
+isAICube OOSAICube {} = True
 isAICube _                 = False
 
 isProjectile :: ObsObjState -> Bool
-isProjectile (OOSProjectile {}) = True
+isProjectile OOSProjectile {} = True
 isProjectile _            = False
 

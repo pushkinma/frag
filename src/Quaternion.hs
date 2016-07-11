@@ -19,7 +19,7 @@ type Matrix3x3 = ((Float,Float,Float),
 -- converts from quaternion to matrix
 quat2Mat :: Quaternion -> (Float,Float,Float) -> IO (GLmatrix GLfloat)
 quat2Mat (x,y,z,w) (t1,t2,t3)=
-   newMatrix ColumnMajor [(r00 :: GLfloat),r01,r02,r03,
+   newMatrix ColumnMajor [r00 :: GLfloat,r01,r02,r03,
                           r10,r11,r12,r13,
                           r20,r21,r22,r23,
                           r30,r31,r32,r33]
@@ -66,10 +66,10 @@ mat2Quat ((r00,r01,r02),
                               (r10-r01)/scale3)
    where
       diag   = r00+r11+r22+1
-      scale0 = 2*(sqrt diag)
-      scale1 = 2*(sqrt (r00-r11-r22+1))
-      scale2 = 2*(sqrt (r11-r00-r22+1))
-      scale3 = 2*(sqrt (r22-r00-r11+1))
+      scale0 = 2*sqrt diag
+      scale1 = 2*sqrt (r00-r11-r22+1)
+      scale2 = 2*sqrt (r11-r00-r22+1)
+      scale3 = 2*sqrt (r22-r00-r11+1)
 
 
 -- does not really perform spherical linaer interpolation

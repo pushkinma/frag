@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+
 
 {- Collision.hs; Mun Hon Cheong (mhch295@cse.unsw.edu.au) 2005
 
@@ -69,7 +69,7 @@ clipRay mp pos oldpos (_,_,_) =
 -- allows an object to step across low obstacles
 traceStep :: CollisionType -> BSPMap -> Vec3 -> Vec3 -> (Vec3,Bool,Bool,Double)
 traceStep cType mp start end
-   | (col && step) =
+   | col && step =
      let (nsteps,finalPos) = tryToStep cType mp newPos end 1 15
      in (finalPos, col, ground, nsteps)
    |otherwise = (newPos, col, ground, 0)
@@ -79,14 +79,14 @@ traceStep cType mp start end
 -- returns the point where the collision occured, no sliding or stepping
 traceo ::  CollisionType -> BSPMap -> Vec3 -> Vec3 -> (Vec3,Bool,Bool,Bool)
 traceo cType mp start end
-   |(newRatio /= 1.0) = (
+   |newRatio /= 1.0 = (
        vectorAdd
           start
             (vectorMult (vectorSub end start) newRatio),hasCol,step,grounded)
    | otherwise = (end,False,step,grounded)
    where
       (hasCol,step,grounded,newRatio,(_,_,_)) =
-          fixCheck $
+          fixCheck
             (checkNode cType
                   (False,False,False,1.0,(0.0,0.0,0.0))
                       (tree mp) 0.0 1.0 start end)
@@ -95,19 +95,17 @@ traceo cType mp start end
 -- allows an object to slide against the environment
 trace ::  CollisionType -> BSPMap -> Vec3 -> Vec3 -> (Vec3,Bool,Bool,Bool,Vec3)
 trace  cType mp start end
-   | (newRatio /= 1.0) =
+   | newRatio /= 1.0 =
       let newPos  = vectorAdd start (vectorMult (vectorSub end start) newRatio)
           moveVec = vectorSub end newPos
           dst    = dotProd moveVec newNorm
           end2    = vectorSub end $ vectorMult newNorm dst
           (newPos2,_,_,_,(n2x,n2y,n2z)) = trace cType mp newPos end2
-      in case (n2y > 0.2 || (grounded)) of
-          True -> (newPos2, True,step,True ,(n2x,n2y,n2z))
-          _    -> (newPos2, True,step,False,(n2x,n2y,n2z))
+      in if n2y > 0.2 || grounded then (newPos2, True,step,True ,(n2x,n2y,n2z)) else (newPos2, True,step,False,(n2x,n2y,n2z))
    | otherwise = (end,False,step,grounded,newNorm)
    where
       (_,step,grounded,newRatio,newNorm@(_,_,_)) =
-         fixCheck $
+         fixCheck
             (checkNode
                 cType
                    (False,False,False,1.0, (0.0,0.0,0.0))
@@ -126,7 +124,7 @@ createBox v1 v2 = Box v1 v2 (getBoxExtents v1 v2)
 
 -- creates a sphere for collision detection
 createSphere :: Double ->  CollisionType
-createSphere rad = SphereT rad
+createSphere = SphereT
 
 
 -- gets the largest ends of the box
@@ -137,7 +135,7 @@ getBoxExtents (x,y,z) (x1,y1,z1) =
 
 getBoxOffs :: Vec3 -> Vec3 -> Double
 getBoxOffs (x,y,z) (x1,y1,z1) =
-   (abs (x*x1))+(abs (y*y1))+(abs (z*z1))
+   abs (x*x1)+abs (y*y1)+abs (z*z1)
 
 
 getOffset :: CollisionType -> Vec3 -> Double
@@ -160,9 +158,7 @@ tryToStep ::
 tryToStep  cType mp (x,y,z) (x1,y1,z1) i maxheight
    | i < maxheight =
      let (pos,col,_,_,_) = trace cType mp  (x,y+i,z) (x1,y1+i,z1)
-     in case (col) of
-           False -> (i,pos)
-           _     -> tryToStep cType mp (x,y,z) (x1,y1,z1) (i+1) maxheight
+     in if col then tryToStep cType mp (x,y,z) (x1,y1,z1) (i+1) maxheight else (i,pos)
    | otherwise = (0,(x,y,z))
 
 -------------------------------------------------------------------------------
@@ -173,27 +169,25 @@ checkBrushes ::
       Tree -> Vec3 -> Vec3 ->
          Maybe (Bool, Bool, Bool, Double, Vec3)
 checkBrushes cType _ (Leaf leaf) start end =
-   case (map (checkBrush start end cType) (leafBrushes leaf)) of
+   case map (checkBrush start end cType) (leafBrushes leaf) of
       []     -> Nothing
       [r]    -> r
       (r:rs) -> foldr brushCompare r rs
-checkBrushes _ _ (Branch _ _ _) _ _ = Nothing
+checkBrushes _ _ Branch{} _ _ = Nothing
 
 checkBrush ::
    Vec3-> Vec3 -> CollisionType ->
       BSPBrush -> Maybe (Bool,Bool,Bool,Double,Vec3)
 checkBrush  start end cType brush
-   |((numOfBrushSides brush) > 0) && ((textureType brush)==1) =
+   |(numOfBrushSides brush > 0) && (textureType brush==1) =
      let colout =
             checkBrushSides
                start end cType
                   False False False False
-                     (-1.0) (1.0) (0,0,0) (brushSides brush)
+                     (-1.0) 1.0 (0,0,0) (brushSides brush)
      in case colout of
            Just (out,collided,step,grounded,startR,endR,newNorm) ->
-              case (startR < endR && startR > -1  && out) of
-                 True -> Just (collided,step,grounded,fixRatio startR,newNorm)
-                 _    -> Nothing
+              if startR < endR && startR > -1  && out then Just (collided,step,grounded,fixRatio startR,newNorm) else Nothing
            _  -> Nothing
    |otherwise = Nothing
    where
@@ -222,7 +216,7 @@ checkBrushSides ::
    Vec3 -> Vec3 -> CollisionType->
       Bool -> Bool -> Bool -> Bool -> Double ->
          Double -> Vec3 -> [BSPBrushSide] ->
-            (Maybe (Bool,Bool,Bool,Bool,Double,Double,Vec3))
+            Maybe (Bool,Bool,Bool,Bool,Double,Double,Vec3)
 checkBrushSides  (_,_,_) (_,_,_)
    _ out collided step ground startR endR cNorm [] =
       Just (out,collided,step,ground,startR,endR,cNorm)
@@ -231,21 +225,17 @@ checkBrushSides  start@(x,_,z) end@(x1,_,z1)
    | startDist >  0 && endDist >  0 = Nothing
    | startDist <= 0 && endDist <= 0 = continue
    | startDist > endDist =
-         case (ratio1 > startR) of
-            True -> (checkBrushSides start end cType checkout
-                        True mayStep grounded ratio1 endR (bsPlaneNorm b) bs)
-            _    -> continue
+         if ratio1 > startR then checkBrushSides start end cType checkout
+                     True mayStep grounded ratio1 endR (bsPlaneNorm b) bs else continue
    | otherwise =
-         case (ratio2 < endR) of
-            True -> (checkBrushSides start end cType checkout
-                        collided step ground startR ratio2 cNorm bs)
-            _    -> continue
+         if ratio2 < endR then checkBrushSides start end cType checkout
+                     collided step ground startR ratio2 cNorm bs else continue
    where
       checkout
           | startDist > 0 = True
           | otherwise = out
       mayStep
-          | ((x /= x1 || z /= z1) && planey /= 1) = True
+          | (x /= x1 || z /= z1) && planey /= 1 = True
           | otherwise = step
       grounded
           | planey >= 0.2 = True
@@ -261,10 +251,10 @@ checkBrushSides  start@(x,_,z) end@(x1,_,z1)
 
 
 vDist :: Vec3 -> CollisionType -> Vec3 -> Double  ->  Double
-vDist vec box@(Box _ _ _) pnorm pdist =
-   (dotProd (vectorAdd vec (getVOffs pnorm box)) pnorm) - pdist
+vDist vec box@Box{} pnorm pdist =
+   dotProd (vectorAdd vec (getVOffs pnorm box)) pnorm - pdist
 vDist vec (SphereT rad) pnorm pdist =
-   (dotProd vec pnorm) - (pdist + rad)
+   dotProd vec pnorm - (pdist + rad)
 
 
 getVOffs:: Vec3 -> CollisionType  -> Vec3
@@ -287,15 +277,15 @@ checkNode cType cState (Leaf leaf) _ _ start end =
    checkBrushes cType cState (Leaf leaf)  start end
 checkNode cType cState (Branch node left right) startRatio endRatio start end =
    let
-     sDist = (dotProd (planeNormal node) start) - (dist node)
-     eDist = (dotProd (planeNormal node) end)   - (dist node)
+     sDist = dotProd (planeNormal node) start - dist node
+     eDist = dotProd (planeNormal node) end   - dist node
    in recurse sDist eDist
    where
       boffset = getOffset cType (planeNormal node)
       recurse sDist eDist
-         |(sDist >= boffset && eDist >= boffset) =
+         |sDist >= boffset && eDist >= boffset =
             checkNode cType cState left  sDist eDist start end
-         |(sDist < ((-1)*boffset) && eDist < ((-1)*boffset)) =
+         |sDist < ((-1)*boffset) && eDist < ((-1)*boffset) =
             checkNode cType cState right sDist eDist start end
          |otherwise = split cType cState sDist eDist
                          startRatio endRatio

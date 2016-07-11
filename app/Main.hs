@@ -23,7 +23,7 @@ import GameInputParser
 import Object
 import BSP
 import Camera
-import System.Exit (ExitCode(..), exitWith)
+import System.Exit
 import Matrix
 import MD3
 import Data.HashTable.IO hiding (mapM_)
@@ -68,10 +68,10 @@ createAWindow :: String -> String -> IO ()
 createAWindow windowName level = do
    initialDisplayMode $= [WithDepthBuffer, DoubleBuffered, RGBAMode]
    drawBuffer             $= BackBuffers
-   initialWindowSize  $= (Size 640 480)
+   initialWindowSize      $= Size 640 480
    createWindow windowName
    clear [ColorBuffer]
-   viewport               $= ((Position 0 0), Size 640 480)
+   viewport               $= (Position 0 0, Size 640 480)
    matrixMode             $= Projection
    loadIdentity
    perspective 70.0 (640/480) 10.0  4000.0
@@ -86,7 +86,7 @@ createAWindow windowName level = do
    iobjs <- readMapCfg (level ++ ".cfg")
 
    let cam = initCamera (80::Int,61::Int,60::Int) (80::Int,611::Int,59::Int) (0::Int,1::Int,0::Int)
-   camRef <- newIORef(cam)
+   camRef <- newIORef cam
 
    --read the BSP files and player models specified in the *.med files
    (mapRef, modls) <- readMapMedia (level ++ ".med")
@@ -110,23 +110,23 @@ createAWindow windowName level = do
 
    --set up the variables needed by our callbacks and game loop
    tme            <- get elapsedTime
-   lasttime        <- newIORef(tme)
-   lastDTime       <- newIORef(tme)
-   lastDTime2      <- newIORef(tme)
+   lasttime        <- newIORef tme
+   lastDTime       <- newIORef tme
+   lastDTime2      <- newIORef tme
    fpsc1                   <- newIORef(0,0)
    fps1            <- newIORef(0,0,0)
    newIORef(0::Int)
-   _      <- newIORef(tme)
+   _      <- newIORef tme
    --hold new keyboard input
-   newInput        <- newIORef(Nothing)
-   inpState        <- newIORef (False)
+   newInput        <- newIORef Nothing
+   inpState        <- newIORef False
    --hold the new mouse input
-   newMouseInput  <- newIORef(Nothing)
+   newMouseInput  <- newIORef Nothing
    --lock the mouse or not
-   lck             <- newIORef(True)
+   lck             <- newIORef True
    (_, _)       <- getWinInput
-                                    (lasttime, (newInput,newMouseInput)) inpState True tme
-   hasReact        <- newIORef(False)
+                        (lasttime, (newInput,newMouseInput)) inpState True tme
+   hasReact        <- newIORef False
    mp             <- readIORef mapRef
 
    let gd = GameData {
@@ -142,14 +142,14 @@ createAWindow windowName level = do
           lock           = lck,
           fpsc           = fpsc1,
           fpss           = fps1,
-          nems           = ((length objs)-1)
+          nems           = length objs - 1
    }
 
 
    rh <- reactInit
         (initr lasttime (newInput,newMouseInput) inpState)
         (actuate gd)
-        (repeatedly (0.016) () &&&(parseWinInput >>> game mp objs))
+        (repeatedly 0.016 () &&&(parseWinInput >>> game mp objs))
 
 
    --set up the callbacks
@@ -176,13 +176,13 @@ createAWindow windowName level = do
 actuate :: GameData -> ReactHandle a b ->
    Bool -> (Event (), [ObsObjState]) -> IO Bool
 actuate  gd _ _ (e, noos) = do
-   when (force (noos) `seq` isEvent e)
+   when (force noos `seq` isEvent e)
         (render gd noos)
    return False
 
 
-initr :: IORef(Int) -> (IORef(OGLInput),IORef(OGLInput)) ->
-   (IORef(Bool))  -> IO (WinInput,WinInput)
+initr :: IORef Int -> (IORef OGLInput,IORef OGLInput) ->
+   IORef Bool  -> IO (WinInput,WinInput)
 initr lasttime newInput inpState = do
          tme     <- get elapsedTime
          writeIORef lasttime 1
@@ -205,29 +205,27 @@ render gd oos = do
   -- if the last time is at least greater than 0.016
   -- seconds and the mouse is locked reset the position
   -- to the middle of the screen
-  case ((realToFrac ((tme - lastime) :: Int)) / (1000))
-        >= (1/60) && l == True of
-        True -> do
-           pointerPosition      $= (Position 320 240)
-           writeIORef (lastDrawTime gd) tme
-        _ -> return ()
+  when ((realToFrac ((tme - lastime) :: Int) / 1000) >= (1/60) && l)
+    (do
+       pointerPosition      $= Position 320 240
+       writeIORef (lastDrawTime gd) tme)
 
   _ <- readIORef (lastDrawTime2 gd)
   _ <- readIORef (hasReacted gd)
 
   --case (((realToFrac (time - lastTime2))/1000) <= (1/60)) of
-  case (True) of
-        True -> do
+  if True then
+        (do
                     -- initial setup
                     clear [ ColorBuffer, DepthBuffer ]
                     loadIdentity
 
                     --find the camera and set our view
                     let playerState = findCam oos
-                    case (cood playerState) of
+                    case cood playerState of
                          [] -> return ()
                          _ -> print (getPos (cood playerState))
-                    let cam = setCam $ playerState
+                    let cam = setCam playerState
                     writeIORef (camera gd) cam
                     cameraLook cam
 
@@ -247,10 +245,10 @@ render gd oos = do
 
                     writeIORef (lastDrawTime2 gd) tme
                     writeIORef (hasReacted gd) False
-                    swapBuffers
-        _       -> do
-                    writeIORef (lastDrawTime2 gd) tme
-                    return()
+                    swapBuffers)
+        else do
+            writeIORef (lastDrawTime2 gd) tme
+            return()
 
 
 getPos :: [(Double,Double,Double)] -> [(Int,Int,Int)]
@@ -261,11 +259,11 @@ getPos coords = map ints l
 
 
 findCam :: [ObsObjState] -> ObsObjState
-findCam states = fromJust $ find (\x -> (isCamera x)) states
+findCam states = fromJust $ find isCamera states
 
 
 setCam :: ObsObjState -> Camera
-setCam (OOSCamera {oldCam = cam, newCam = _}) =  cam
+setCam OOSCamera {oldCam = cam, newCam = _} =  cam
 
 
 -------------------------------------------------------------------------------
@@ -276,31 +274,31 @@ display = return ()
 
 
 keyboardMouse ::
-   IORef(OGLInput) -> IORef(OGLInput) -> IORef(Bool) ->  KeyboardMouseCallback
+   IORef OGLInput -> IORef OGLInput -> IORef Bool ->  KeyboardMouseCallback
 keyboardMouse _ _ lck (Char 'z') _ _ _  = do
    readIORef lck
-   writeIORef lck (False)
+   writeIORef lck False
 keyboardMouse _ _ lck (Char 'x') _ _ _  = do
    _ <- readIORef lck
-   writeIORef lck (True)
-keyboardMouse _ _ _ (Char '\27') _ _ _  = exitWith ExitSuccess
+   writeIORef lck True
+keyboardMouse _ _ _ (Char '\27') _ _ _  = exitSuccess
 keyboardMouse _ newMouse _ newKey@(MouseButton _)
-   newKeyState newModifiers newPosition = do
+   newKeyState newModifiers newPosition =
          writeIORef  newMouse (Just KBMInput{
                                                         key             = newKey,
                                                         keyState        = newKeyState,
                                                         modifiers = newModifiers,
                                                         pos             = newPosition})
 keyboardMouse newInput _ _ newKey
-   newKeyState newModifiers newPosition = do
-         writeIORef newInput (Just KBMInput{
+   newKeyState newModifiers newPosition =
+         writeIORef newInput $ Just KBMInput{
                                                         key              = newKey,
                                                         keyState         = newKeyState,
                                                         modifiers  = newModifiers,
-                                                        pos              = newPosition})
+                                                        pos              = newPosition}
 
 
-mouseMotion :: IORef(OGLInput) -> MotionCallback
+mouseMotion :: IORef OGLInput -> MotionCallback
 mouseMotion newInput newCursorPos = do
    lst <- readIORef newInput
    case lst of
@@ -308,7 +306,7 @@ mouseMotion newInput newCursorPos = do
          _          -> writeIORef newInput (Just MouseMove {pos=newCursorPos})
 
 
-dragMotion :: IORef(OGLInput) -> MotionCallback
+dragMotion :: IORef OGLInput -> MotionCallback
 dragMotion newInput newCursorPos = do
    lst <- readIORef newInput
    case lst of
@@ -316,21 +314,21 @@ dragMotion newInput newCursorPos = do
          _          -> writeIORef newInput (Just MouseMove {pos=newCursorPos})
 
 
-idle :: IORef(Int) -> (IORef(OGLInput),IORef(OGLInput)) ->IORef(Bool) ->
-  (Maybe TextureObject,DisplayList) -> (IORef(Bool)) ->
-        ReactHandle (WinInput,WinInput) (Event (), ([Object.ObsObjState])) -> IO()
+idle :: IORef Int -> (IORef OGLInput,IORef OGLInput) -> IORef Bool ->
+  (Maybe TextureObject,DisplayList) -> IORef Bool ->
+        ReactHandle (WinInput,WinInput) (Event (), [Object.ObsObjState]) -> IO()
 idle lasttime newInput hasreacted _ inputState rh = do
    lTime <- readIORef lasttime
    currenttime <- get elapsedTime
-   case (currenttime - lTime >= 16) of
-         True -> do
+   when (currenttime - lTime >= 16) $
+         do
             (dt, input) <-
                   getWinInput (lasttime,newInput) inputState True currenttime
             react rh (dt,input)
             writeIORef hasreacted True
             writeIORef lasttime currenttime
             return ()
-         _ -> return ()
+   --else return ()
 
 
 
@@ -340,8 +338,8 @@ idle lasttime newInput hasreacted _ inputState rh = do
 -- input handling
 -- mimic HGL so the parser from Space Invaders can be used
 getWinInput ::
-   (IORef(Int),(IORef(OGLInput),IORef(OGLInput))) ->
-         (IORef(Bool)) -> Bool -> Int-> IO(DTime,(Maybe (WinInput,WinInput)))
+   (IORef Int,(IORef OGLInput,IORef OGLInput)) ->
+         IORef Bool -> Bool -> Int-> IO(DTime,Maybe (WinInput,WinInput))
 getWinInput (lasttime, (newInput,newMouseInput)) inpState _ currenttime = do
    lTime <- readIORef lasttime
    newIn <- readIORef newInput
@@ -382,7 +380,7 @@ getWinInput (lasttime, (newInput,newMouseInput)) inpState _ currenttime = do
                   writeIORef inpState True
                   return $ Just (coalesce newIn,coalesce newMouseIn)
 
-   return ((fromIntegral (currenttime-lTime))/clkRes, mmin)
+   return (fromIntegral (currenttime-lTime)/clkRes, mmin)
 
 
 coalesce :: OGLInput -> WinInput
@@ -390,16 +388,16 @@ coalesce Nothing = NoEvent
 coalesce (Just KBMInput {key            = (MouseButton button),
                                         keyState        = ks,
                                         pos             = p}) =
-   (Event HGL.Button {
-          HGL.pt           = (pos2Point p),
-          HGL.isLeft = (isMBLeft (MouseButton button)),
-          HGL.isDown = (isKeyDown ks)})
+   Event HGL.Button {
+          HGL.pt     = pos2Point p,
+          HGL.isLeft = isMBLeft (MouseButton button),
+          HGL.isDown = isKeyDown ks}
 coalesce (Just KBMInput {key            = (Char a),
                                         keyState        = ks}) =
-   (Event HGL.Char {HGL.char = a,
-                                HGL.isDown = (isKeyDown ks)})
+   Event HGL.Char {HGL.char = a,
+                                HGL.isDown = isKeyDown ks}
 coalesce (Just MouseMove {pos= p}) =
-   (Event HGL.MouseMove { HGL.pt = pos2Point p })
+   Event HGL.MouseMove { HGL.pt = pos2Point p }
 coalesce _ = NoEvent
 
 
@@ -417,10 +415,10 @@ isKeyDown Down = True
 isKeyDown _     = False
 
 
-filter :: Eq a => a -> a -> Maybe(a)
+filter :: Eq a => a -> a -> Maybe a
 filter a b =
-   if (a == b) then
-         Just(a)
+   if a == b then
+         Just a
    else
          Nothing
 

@@ -11,10 +11,7 @@
 *****************************************************************************
 -}
 
-module Command (
-    Command(..)
-) where
-
+module Command where
 
 data Command =
      CmdQuit        -- Quit Invaders.
