@@ -2,6 +2,10 @@ sudo: false
 
 language: haskell
 
+cache:
+  directories:
+    - $HOME/.stack/
+
 before_install:
 - export PATH=$HOME/.local/bin:$PATH
 
