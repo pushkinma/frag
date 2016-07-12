@@ -2,7 +2,7 @@
 
 Patched version of [frag](https://wiki.haskell.org/Frag)
 
-Differences:
+What's new:
 * Building with [stack](http://haskellstack.org)
 * [GHC 8.0](https://www.haskell.org/ghc/) builds with no warnings (7.10 too)
 * Internal [AFRP](https://wiki.haskell.org/Arrows-based_Functional_Reactive_Programming) replaced by external [Yampa](https://wiki.haskell.org/Yampa)
