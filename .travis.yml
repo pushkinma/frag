@@ -14,3 +14,4 @@ before_install:
 install:
 - stack setup --no-system-ghc #--no-terminal --skip-ghc-check
 - stack build --no-system-ghc --only-snapshot #--no-terminal --skip-ghc-check
+- configure cabal install --dependencies-only
