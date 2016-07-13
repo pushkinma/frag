@@ -20,7 +20,6 @@ import Foreign hiding (newArray)
 import Data.Array.IArray
 import Data.Array.IO
 import Graphics.UI.GLUT (GLint, GLsizei)
-import Foreign.Storable
 
 
 data BSPPatch = BSPPatch {

@@ -45,7 +45,6 @@ module PhysicalDimensions (
 ) where
 
 import FRP.Yampa.Core (Time)
-import FRP.Yampa.Miscellany (fMod)
 import FRP.Yampa.Geometry (Vector2, Vector3, Point2, Point3)
 
 

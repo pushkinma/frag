@@ -9,14 +9,12 @@ module Main where
 
 import TextureFonts
 import Graphics.UI.GLUT
-import Graphics.Rendering.OpenGL
 import Data.IORef
 import Data.Maybe
 import Control.Monad
 import qualified HGL
+
 import FRP.Yampa
-import FRP.Yampa.Core
-import FRP.Yampa.Internals
 import Control.DeepSeq
 import Game
 import GameInputParser
@@ -69,7 +67,7 @@ createAWindow windowName level = do
    initialDisplayMode $= [WithDepthBuffer, DoubleBuffered, RGBAMode]
    drawBuffer             $= BackBuffers
    initialWindowSize      $= Size 640 480
-   createWindow windowName
+   _ <- createWindow windowName
    clear [ColorBuffer]
    viewport               $= (Position 0 0, Size 640 480)
    matrixMode             $= Projection
@@ -115,8 +113,8 @@ createAWindow windowName level = do
    lastDTime2      <- newIORef tme
    fpsc1                   <- newIORef(0,0)
    fps1            <- newIORef(0,0,0)
-   newIORef(0::Int)
-   _      <- newIORef tme
+   _                <- newIORef(0::Int)
+   _                <- newIORef tme
    --hold new keyboard input
    newInput        <- newIORef Nothing
    inpState        <- newIORef False
@@ -275,9 +273,10 @@ display = return ()
 
 keyboardMouse ::
    IORef OGLInput -> IORef OGLInput -> IORef Bool ->  KeyboardMouseCallback
-keyboardMouse _ _ lck (Char 'z') _ _ _  = do
-   readIORef lck
-   writeIORef lck False
+keyboardMouse _ _ lck (Char 'z') _ _ _  =
+    do
+        _ <- readIORef lck
+        writeIORef lck False
 keyboardMouse _ _ lck (Char 'x') _ _ _  = do
    _ <- readIORef lck
    writeIORef lck True

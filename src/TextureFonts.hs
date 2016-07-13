@@ -10,7 +10,6 @@ module TextureFonts where
 
 import Graphics.UI.GLUT
 import Textures
-import Data.Maybe
 import Data.Char
 import Data.HashTable.IO as H hiding (mapM_)
 
@@ -118,7 +117,7 @@ setUpOrtho func = do
      loadIdentity
      ortho 0 640 0 480 (-1) 1
      matrixMode $= Modelview 0
-     func
+     _ <- func
      matrixMode $= Projection
    matrixMode   $= Modelview 0
 

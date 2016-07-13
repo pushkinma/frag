@@ -64,7 +64,7 @@ ray (!x, !y, !z) (!vx, !vy, !vz) firedfrom iD
                                      ooSendMessage =
                                        clipev `tag` [(firedfrom, (iD, Coord clip))]}))
   where (start, end) = firePos (x, y, z) (vx, vy, vz)
-        (_, _, _) = normalise $ vectorSub end start
+        _ = normalise $ vectorSub end start
         not0 c
           | c /= (0, 0, 0) = c
           | otherwise = (x, y, z)
@@ -762,27 +762,27 @@ turnToFaceTarget (currentPos, initialAngle)
        ((first getDt >>>
            loop
              (arr
-                (\ ((dt, (clippedPos, ev1, ev2, gi, grounded, oi)), count) ->
-                   (count, (clippedPos, dt, ev1, ev2, gi, grounded, oi)))
+                (\ ((dt, (clippedPos, ev1, ev2, gi, grounded, oi)), cnt) ->
+                   (cnt, (clippedPos, dt, ev1, ev2, gi, grounded, oi)))
                 >>>
                 (first (arr (+ 1) >>> (iPre 0 <<< identity)) >>>
                    arr
-                     (\ (count, (clippedPos, dt, ev1, ev2, gi, grounded, oi)) ->
-                        ((clippedPos, count, dt, ev1, ev2, gi, grounded, oi), count)))))
+                     (\ (cnt, (clippedPos, dt, ev1, ev2, gi, grounded, oi)) ->
+                        ((clippedPos, cnt, dt, ev1, ev2, gi, grounded, oi), cnt)))))
           >>>
           arr
-            (\ (clippedPos, count, dt, ev1, ev2, gi, grounded, oi) ->
-               (clippedPos, (count, dt, ev1, ev2, gi, grounded, oi))))
+            (\ (clippedPos, cnt, dt, ev1, ev2, gi, grounded, oi) ->
+               (clippedPos, (cnt, dt, ev1, ev2, gi, grounded, oi))))
          >>>
          (first (iPre currentPos <<< identity) >>>
             arr
-              (\ ((ox1, oy1, oz1), (count, dt, ev1, ev2, gi, grounded, oi)) ->
-                 ((count, ox1, oy1, oz1), (dt, ev1, ev2, gi, grounded, oi))))
+              (\ ((ox1, oy1, oz1), (cnt, dt, ev1, ev2, gi, grounded, oi)) ->
+                 ((cnt, ox1, oy1, oz1), (dt, ev1, ev2, gi, grounded, oi))))
            >>>
            (first
               (arr
-                 (\ (count, ox1, oy1, oz1) ->
-                    if count > (3 :: Int) && (ox1, oy1, oz1) /= currentPos then (ox1, oy1, oz1) else currentPos)
+                 (\ (cnt, ox1, oy1, oz1) ->
+                    if cnt > (3 :: Int) && (ox1, oy1, oz1) /= currentPos then (ox1, oy1, oz1) else currentPos)
                  >>> identity)
               >>>
               arr

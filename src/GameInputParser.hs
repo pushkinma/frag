@@ -42,7 +42,6 @@ module GameInputParser (
 import Data.Maybe
 import qualified HGL
 import FRP.Yampa.Core
-import FRP.Yampa.Utilities
 import FRP.Yampa.Geometry
 import Control.Arrow
 import FRP.Yampa
