@@ -4,6 +4,7 @@ language: haskell
 
 cache:
   directories:
+    - $HOME/.cabal/
     - $HOME/.stack/
 
 before_install:
@@ -12,6 +13,6 @@ before_install:
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 install:
-- stack setup --no-system-ghc #--no-terminal --skip-ghc-check
-- stack build --no-system-ghc --only-snapshot #--no-terminal --skip-ghc-check
-- configure cabal install --dependencies-only
+- stack setup --no-system-ghc && #--no-terminal --skip-ghc-check
+- stack build --no-system-ghc --only-snapshot && #--no-terminal --skip-ghc-check
+- cabal configure && cabal install --dependencies-only
