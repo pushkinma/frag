@@ -1,5 +1,5 @@
 ![Haskell frag 3D-shooter game screenshot](/Screenshot.png)
-
+# frag [![Realease](https://img.shields.io/badge/Release-v1.2-blue.svg)](https://github.com/pushkinma/frag) [![Windows build status](https://img.shields.io/badge/Windows%20build-passing-brightgreen.svg)](https://ci.appveyor.com/project/pushkinma/frag)
 Patched version of [frag](https://wiki.haskell.org/Frag)
 
 What's new:
