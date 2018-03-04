@@ -9,4 +9,4 @@ data Event
 
  deriving Show
 
-data Point = Point !(Int,Int) deriving Show
+newtype Point = Point (Int,Int) deriving Show
