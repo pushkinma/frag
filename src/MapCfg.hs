@@ -144,7 +144,7 @@ findModelAnim ::
 findModelAnim name anms = (ua,la)
    where
       (_,ua,la) =
-          fromJust $ find (\(x,_,_)->(x==name)) anms
+          fromJust $ find (\(x,_,_)->x==name) anms
 
 
 

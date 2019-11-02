@@ -1,7 +1,7 @@
 module Game where
 
 import FRP.Yampa.Core
-import FRP.Yampa.Internals (Event(..))
+import FRP.Yampa (Event(..))
 import FRP.Yampa.Switches
 import FRP.Yampa.Event
 import FRP.Yampa.Basic

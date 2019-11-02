@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-
 module ObjectBehavior (aicube, camera) where
 
 import Data.Maybe (fromJust)
@@ -38,17 +37,17 @@ ray (!x, !y, !z) (!vx, !vy, !vz) firedfrom iD
                 (\ (clip, (cl, timeout, vvx, vvy, vvz)) ->
                    (vvx, (cl, clip, timeout, vvy, vvz))))
              >>>
-             (first (arr (\ vvx -> 7500 * vvx) >>> integral) >>>
+             (first (arr (7500 *) >>> integral) >>>
                 arr
                   (\ (ucx, (cl, clip, timeout, vvy, vvz)) ->
                      (vvy, (cl, clip, timeout, ucx, vvz))))
                >>>
-               (first (arr (\ vvy -> 7500 * vvy) >>> integral) >>>
+               (first (arr (7500 *) >>> integral) >>>
                   arr
                     (\ (ucy, (cl, clip, timeout, ucx, vvz)) ->
                        (vvz, (cl, clip, timeout, ucx, ucy))))
                  >>>
-                 (first (arr (\ vvz -> 7500 * vvz) >>> integral) >>>
+                 (first (arr (7500 *) >>> integral) >>>
                     arr
                       (\ (ucz, (cl, clip, timeout, ucx, ucy)) ->
                          (cl, (cl, clip, timeout, ucx, ucy, ucz))))
@@ -97,7 +96,7 @@ projectile ((sx, sy, sz), (vx, vy, vz)) firedfrom _
                          ((clipEv, hit), (oldpos, x, y, z))))
                    >>>
                    (first
-                      (arr (\ (clipEv, hit) -> (isEvent clipEv || isEvent hit)) >>> edge)
+                      (arr (\ (clipEv, hit) -> isEvent clipEv || isEvent hit) >>> edge)
                       >>>
                       arr
                         (\ (hitEv, (oldpos, x, y, z)) ->
@@ -691,7 +690,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                               [projectile (getMuzzlePoint (oldPos, targ)) iD],
                                           ooSendMessage =
                                             hitev `tag`
-                                              (if isDead then [] else [(fromJust hitSource, (iD, EnemyDown))])
+                                              [(fromJust hitSource, (iD, EnemyDown)) | not isDead]
                                               `lMerge` targetLost1
                                               `tag`
                                               [(fst (head (fromEvent enemy)), (iD, PlayerLockedOn))]
@@ -847,7 +846,7 @@ turnToFaceTarget (currentPos, initialAngle)
                           >>>
                           (first
                              (arr
-                                (\ (ev2, legState) -> ((legState == idleLegs) && isEvent ev2))
+                                (\ (ev2, legState) -> (legState == idleLegs) && isEvent ev2)
                                 >>> edge)
                              >>>
                              arr
@@ -1091,7 +1090,7 @@ turnToNextWp currentangle nextAngle
                in ((legState, lev), (angle, targetAngle))))
        >>>
        (first
-          (arr (\ (legState, lev) -> (legState == idleLegs && isEvent lev))
+          (arr (\ (legState, lev) -> legState == idleLegs && isEvent lev)
              >>> (iPre noEvent <<< edge))
           >>>
           first
@@ -1155,7 +1154,7 @@ updateAnimSF iAnim
        >>>
        arr
          (\ (anim2, animIndex, hasLooped) ->
-            (if hasLooped then (if animIndex == dead1 then (noEvent, anim2) else (Event (), anim2)) else (noEvent, anim2)))
+            if hasLooped then (if animIndex == dead1 then (noEvent, anim2) else (Event (), anim2)) else (noEvent, anim2))
 
 moves :: SF (Double, Camera) Camera
 moves
@@ -1252,7 +1251,7 @@ fallingp
                (first
                   (arr
                      (\ (lnd, middleOfJump) ->
-                        (not lnd && not middleOfJump))
+                        not lnd && not middleOfJump)
                      >>> edge)
                   >>>
                   arr

@@ -1117,7 +1117,7 @@ readAnimations filepath = withBinaryFile' filepath $ \handle -> do
 
 readAnimation :: String -> IO [MD3Animation]
 readAnimation line
-    | length subStrings <= 0 =
+    | null subStrings =
                 return []
     | length subStrings >= 5 =
           if (subStrings !! 4) `elem` animList then (do

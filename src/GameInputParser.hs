@@ -327,27 +327,27 @@ nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = True, HGL.isDown = True} =
     pds {pdsPos = p', pdsDragVec = dv, pdsLeft = Just p'}
     where
            p' = gPointToPosition2 p
-           dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) (pdsDrag pds)
+           dv = maybe (pdsDragVec pds) (p' .-.) (pdsDrag pds)
 nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = True, HGL.isDown = False} =
     -- Left button released.
     pds {pdsPos = p', pdsDragVec = dv, pdsLeft = Nothing, pdsDrag = md}
     where
            p' = gPointToPosition2 p
-           md = maybe Nothing (const (pdsDrag pds)) (pdsRight pds)
-           dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) md
+           md = const (pdsDrag pds) =<< pdsRight pds
+           dv = maybe (pdsDragVec pds) (p' .-.) md
 nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = False, HGL.isDown = True} =
     -- Right button pressed.
     pds {pdsPos = p', pdsDragVec = dv, pdsRight = Just p'}
     where
            p' = gPointToPosition2 p
-           dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) (pdsDrag pds)
+           dv = maybe (pdsDragVec pds) (p' .-.) (pdsDrag pds)
 nextPDS pds HGL.Button {HGL.pt = p, HGL.isLeft = False, HGL.isDown = False} =
     -- Right button released.
     pds {pdsPos = p', pdsDragVec = dv, pdsRight = Nothing, pdsDrag = md}
     where
            p' = gPointToPosition2 p
-           md = maybe Nothing (const (pdsDrag pds)) (pdsLeft pds)
-           dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) md
+           md = const (pdsDrag pds) =<< pdsLeft pds
+           dv = maybe (pdsDragVec pds) (p' .-.) md
 nextPDS pds HGL.MouseMove {HGL.pt = p} =
     -- Mouse move.
     pds {pdsPos = p', pdsDragStartPos = dsp, pdsDragVec = dv, pdsDrag = md}
@@ -357,7 +357,7 @@ nextPDS pds HGL.MouseMove {HGL.pt = p} =
                     mlp@(Just _) -> mlp
                     Nothing       -> pdsRight pds
            dsp = fromMaybe (pdsDragStartPos pds) md
-           dv = maybe (pdsDragVec pds) (\dspos -> p' .-. dspos) md
+           dv = maybe (pdsDragVec pds) (p' .-.) md
 nextPDS pds _ = pds                     -- Ignore unknown events.
 
 gPointToPosition2 :: HGL.Point -> Position2
