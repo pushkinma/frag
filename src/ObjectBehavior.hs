@@ -1,60 +1,67 @@
 {-# LANGUAGE BangPatterns #-}
-module ObjectBehavior (aicube, camera) where
+-- |
+module ObjectBehavior (
+  aicube,
+  camera,
+) where
 
-import Data.Maybe (fromJust)
+import           Data.Maybe
+import           FRP.Yampa
+import           FRP.Yampa.Core
 
-import FRP.Yampa.Core
-import FRP.Yampa
-import Camera
-import IdentityList
-import MD3
-import Matrix
-import Object
-import GameInputParser
+import           Camera
+import           GameInputParser
+import           IdentityList
+import           Matrix
+import           MD3
+import           Object
 
-ray ::
-    (Double, Double, Double) ->
-      (Double, Double, Double) -> ILKey -> ILKey -> Object
-ray (!x, !y, !z) (!vx, !vy, !vz) firedfrom iD
-  = arr
-       (\ oi ->
+ray
+  :: (Double, Double, Double)
+  -> (Double, Double, Double)
+  -> ILKey
+  -> ILKey
+  -> Object
+ray (!x, !y, !z) (!vx, !vy, !vz) firedfrom iD =
+  arr
+       (\oi ->
           let clippedPos = oiCollisionPos oi in
             let grounded = oiOnLand oi in ((), (clippedPos, grounded)))
        >>>
        (first (after 0.25 ()) >>>
           arr
-            (\ (timeout, (clippedPos, grounded)) ->
+            (\(timeout, (clippedPos, grounded)) ->
                (grounded, (clippedPos, timeout))))
          >>>
          (first (iPre False <<< identity) >>>
             arr
-              (\ (cl, (clippedPos, timeout)) ->
+              (\(cl, (clippedPos, timeout)) ->
                  let (vvx, vvy, vvz) = normalise $ vectorSub end start in
                    (clippedPos, (cl, timeout, vvx, vvy, vvz))))
            >>>
            (first (iPre start <<< arr not0) >>>
               arr
-                (\ (clip, (cl, timeout, vvx, vvy, vvz)) ->
+                (\(clip, (cl, timeout, vvx, vvy, vvz)) ->
                    (vvx, (cl, clip, timeout, vvy, vvz))))
              >>>
              (first (arr (7500 *) >>> integral) >>>
                 arr
-                  (\ (ucx, (cl, clip, timeout, vvy, vvz)) ->
+                  (\(ucx, (cl, clip, timeout, vvy, vvz)) ->
                      (vvy, (cl, clip, timeout, ucx, vvz))))
                >>>
                (first (arr (7500 *) >>> integral) >>>
                   arr
-                    (\ (ucy, (cl, clip, timeout, ucx, vvz)) ->
+                    (\(ucy, (cl, clip, timeout, ucx, vvz)) ->
                        (vvz, (cl, clip, timeout, ucx, ucy))))
                  >>>
                  (first (arr (7500 *) >>> integral) >>>
                     arr
-                      (\ (ucz, (cl, clip, timeout, ucx, ucy)) ->
+                      (\(ucz, (cl, clip, timeout, ucx, ucy)) ->
                          (cl, (cl, clip, timeout, ucx, ucy, ucz))))
                    >>>
                    (first edge >>>
                       arr
-                        (\ (clipev, (cl, clip, timeout, ucx, ucy, ucz)) ->
+                        (\(clipev, (cl, clip, timeout, ucx, ucy, ucz)) ->
                            ObjOutput{ooObsObjState =
                                        OOSRay{rayStart = start, rayEnd = clip,
                                               rayUC = vectorAdd start (ucx, ucy, ucz), clipped = cl,
@@ -62,44 +69,45 @@ ray (!x, !y, !z) (!vx, !vy, !vz) firedfrom iD
                                      ooKillReq = timeout, ooSpawnReq = noEvent,
                                      ooSendMessage =
                                        clipev `tag` [(firedfrom, (iD, Coord clip))]}))
-  where (start, end) = firePos (x, y, z) (vx, vy, vz)
-        _ = normalise $ vectorSub end start
-        not0 c
-          | c /= (0, 0, 0) = c
-          | otherwise = (x, y, z)
+  where
+    (start, end) = firePos (x, y, z) (vx, vy, vz)
+    _ = normalise $ vectorSub end start
+    not0 c
+      | c /= (0, 0, 0) = c
+      | otherwise = (x, y, z)
 
 projectile :: (Vec3, Vec3) -> ILKey -> ILKey -> Object
-projectile ((sx, sy, sz), (vx, vy, vz)) firedfrom _
-  = arr
-       (\ oi ->
+projectile ((sx, sy, sz), (vx, vy, vz)) firedfrom _ =
+  arr
+       (\oi ->
             let grounded = oiOnLand oi in
               let hits = oiHit oi in (hits, grounded))
        >>>
-       (first identity >>> arr (\ (hit, grounded) -> (grounded, hit))) >>>
+       (first identity >>> arr (\(hit, grounded) -> (grounded, hit))) >>>
          ((first (iPre False <<< identity) >>> first edge) >>>
-            arr (\ (clipEv, hit) -> ((), (clipEv, hit))))
+            arr (\(clipEv, hit) -> ((), (clipEv, hit))))
            >>>
-           (first (arr (\ () -> 1500 * vx) >>> imIntegral sx) >>>
-              arr (\ (x, (clipEv, hit)) -> ((), (clipEv, hit, x))))
+           (first (arr (\() -> 1500 * vx) >>> imIntegral sx) >>>
+              arr (\(x, (clipEv, hit)) -> ((), (clipEv, hit, x))))
              >>>
-             (first (arr (\ () -> 1500 * vy) >>> imIntegral sy) >>>
-                arr (\ (y, (clipEv, hit, x)) -> ((), (clipEv, hit, x, y))))
+             (first (arr (\() -> 1500 * vy) >>> imIntegral sy) >>>
+                arr (\(y, (clipEv, hit, x)) -> ((), (clipEv, hit, x, y))))
                >>>
-               (first (arr (\ () -> 1500 * vz) >>> imIntegral sz) >>>
+               (first (arr (\() -> 1500 * vz) >>> imIntegral sz) >>>
                   arr
-                    (\ (z, (clipEv, hit, x, y)) ->
+                    (\(z, (clipEv, hit, x, y)) ->
                        ((x, y, z), (clipEv, hit, x, y, z))))
                  >>>
                  (first (iPre (sx, sy, sz) <<< identity) >>>
                     arr
-                      (\ (oldpos, (clipEv, hit, x, y, z)) ->
+                      (\(oldpos, (clipEv, hit, x, y, z)) ->
                          ((clipEv, hit), (oldpos, x, y, z))))
                    >>>
                    (first
-                      (arr (\ (clipEv, hit) -> isEvent clipEv || isEvent hit) >>> edge)
+                      (arr (\(clipEv, hit) -> isEvent clipEv || isEvent hit) >>> edge)
                       >>>
                       arr
-                        (\ (hitEv, (oldpos, x, y, z)) ->
+                        (\(hitEv, (oldpos, x, y, z)) ->
                            ObjOutput{ooObsObjState =
                                        OOSProjectile{projectileOldPos = oldpos,
                                                      projectileNewPos = (x, y, z),
@@ -107,13 +115,16 @@ projectile ((sx, sy, sz), (vx, vy, vz)) firedfrom _
                                      ooKillReq = hitEv, ooSpawnReq = noEvent,
                                      ooSendMessage = noEvent}))
 
-camera ::
-       Camera ->
-         [(String, AnimState, AnimState)] ->
-           [(ILKey, Message)] -> ILKey -> Object
-camera cam _ _ iD
-  = arr
-       (\ oi ->
+-- |
+camera
+  :: Camera
+  -> [(String, AnimState, AnimState)]
+  -> [(ILKey, Message)]
+  -> ILKey
+  -> Object
+camera cam _ _ iD =
+  arr
+       (\oi ->
           let gi = oiGameInput oi in
             let clippedcam = oiCollision oi in
               let grounded = oiOnLand oi in
@@ -122,17 +133,17 @@ camera cam _ _ iD
        >>>
        (first ptrPos >>>
           arr
-            (\ (pPos, (clippedcam, gi, grounded, msgs, oi)) ->
+            (\(pPos, (clippedcam, gi, grounded, msgs, oi)) ->
                (gi, (clippedcam, gi, grounded, msgs, oi, pPos))))
          >>>
          (first (movementKS 400) >>>
             arr
-              (\ (forwardVel, (clippedcam, gi, grounded, msgs, oi, pPos)) ->
+              (\(forwardVel, (clippedcam, gi, grounded, msgs, oi, pPos)) ->
                  (gi, (clippedcam, forwardVel, gi, grounded, msgs, oi, pPos))))
            >>>
            (first (strafeKS 400) >>>
               arr
-                (\ (strafeVel,
+                (\(strafeVel,
                     (clippedcam, forwardVel, gi, grounded, msgs, oi, pPos))
                    ->
                    (gi,
@@ -141,7 +152,7 @@ camera cam _ _ iD
              >>>
              (first lbp >>>
                 arr
-                  (\ (trigger,
+                  (\(trigger,
                       (clippedcam, forwardVel, gi, grounded, msgs, oi, pPos, strafeVel))
                      ->
                      (gi,
@@ -150,7 +161,7 @@ camera cam _ _ iD
                >>>
                (first rbp >>>
                   arr
-                    (\ (rtrigger,
+                    (\(rtrigger,
                         (clippedcam, forwardVel, gi, grounded, msgs, oi, pPos, strafeVel,
                          trigger))
                        ->
@@ -160,7 +171,7 @@ camera cam _ _ iD
                  >>>
                  (first getDt >>>
                     arr
-                      (\ (dt,
+                      (\(dt,
                           (clippedcam, forwardVel, gi, grounded, msgs, oi, pPos, rtrigger,
                            strafeVel, trigger))
                          ->
@@ -169,11 +180,11 @@ camera cam _ _ iD
                            strafeVel, trigger))))
                    >>>
                    (first
-                      (arr (\ (clippedcam, pPos) -> (pPos, clippedcam)) >>>
+                      (arr (\(clippedcam, pPos) -> (pPos, clippedcam)) >>>
                          (iPre cam <<< arr setView))
                       >>>
                       arr
-                        (\ (cam1,
+                        (\(cam1,
                             (clippedcam, dt, forwardVel, gi, grounded, msgs, oi, rtrigger,
                              strafeVel, trigger))
                            ->
@@ -182,11 +193,11 @@ camera cam _ _ iD
                              trigger))))
                      >>>
                      (first
-                        (arr (\ (cam1, dt, forwardVel) -> (forwardVel * dt, cam1)) >>>
+                        (arr (\(cam1, dt, forwardVel) -> (forwardVel * dt, cam1)) >>>
                            moves)
                         >>>
                         arr
-                          (\ (cam2,
+                          (\(cam2,
                               (cam1, clippedcam, dt, gi, grounded, msgs, oi, rtrigger, strafeVel,
                                trigger))
                              ->
@@ -194,25 +205,25 @@ camera cam _ _ iD
                               (cam1, clippedcam, gi, grounded, msgs, oi, rtrigger, trigger))))
                        >>>
                        (first
-                          (arr (\ (cam2, dt, strafeVel) -> (strafeVel * dt, cam2)) >>>
+                          (arr (\(cam2, dt, strafeVel) -> (strafeVel * dt, cam2)) >>>
                              strafes)
                           >>>
                           arr
-                            (\ (cam3,
+                            (\(cam3,
                                 (cam1, clippedcam, gi, grounded, msgs, oi, rtrigger, trigger))
                                ->
                                ((gi, grounded),
                                 (cam1, cam3, clippedcam, msgs, oi, rtrigger, trigger))))
                          >>>
-                         (first (arr (\ (gi, grounded) -> (grounded, gi)) >>> fallingp) >>>
+                         (first (arr (\(gi, grounded) -> (grounded, gi)) >>> fallingp) >>>
                             arr
-                              (\ (yVel, (cam1, cam3, clippedcam, msgs, oi, rtrigger, trigger)) ->
+                              (\(yVel, (cam1, cam3, clippedcam, msgs, oi, rtrigger, trigger)) ->
                                  ((cam3, yVel), (cam1, clippedcam, msgs, oi, rtrigger, trigger))))
                            >>>
                            ((first (arr dropCam) >>>
                                loop
                                  (arr
-                                    (\ ((cam4, (cam1, clippedcam, msgs, oi, rtrigger, trigger)),
+                                    (\((cam4, (cam1, clippedcam, msgs, oi, rtrigger, trigger)),
                                         msgn)
                                        ->
                                        ((msgn, msgs, rtrigger),
@@ -220,12 +231,12 @@ camera cam _ _ iD
                                     >>>
                                     (first
                                        (arr
-                                          (\ (msgn, msgs, rtrigger) ->
+                                          (\(msgn, msgs, rtrigger) ->
                                              if isEvent rtrigger then ([], msgn) else (getMsg0 msgs msgn, msgn))
                                           >>> (iPre ([], []) <<< identity))
                                        >>>
                                        arr
-                                         (\ ((msgn, msgi),
+                                         (\((msgn, msgi),
                                              (cam1, cam4, clippedcam, msgs, oi, rtrigger, trigger))
                                             ->
                                             ((cam1, cam4, clippedcam, msgi, msgs, oi, rtrigger,
@@ -233,14 +244,14 @@ camera cam _ _ iD
                                              msgn)))))
                               >>>
                               arr
-                                (\ (cam1, cam4, clippedcam, msgi, msgs, oi, rtrigger, trigger) ->
+                                (\(cam1, cam4, clippedcam, msgi, msgs, oi, rtrigger, trigger) ->
                                    (oi, (cam1, cam4, clippedcam, msgi, msgs, rtrigger, trigger))))
                              >>>
                              ((first (arr oiHit >>> (iPre noEvent <<< identity))
                                  >>>
                                  loop
                                    (arr
-                                      (\ ((hitEv,
+                                      (\((hitEv,
                                            (cam1, cam4, clippedcam, msgi, msgs, rtrigger, trigger)),
                                           currentHealth)
                                          ->
@@ -249,14 +260,14 @@ camera cam _ _ iD
                                       >>>
                                       (first
                                          (arr
-                                            (\ (currentHealth, hitEv) ->
+                                            (\(currentHealth, hitEv) ->
                                                if isEvent hitEv then currentHealth -
                                                          realToFrac
                                                             (length (fromEvent hitEv) * 3) else currentHealth)
                                             >>> (iPre 100 <<< identity))
                                          >>>
                                          arr
-                                           (\ (currentHealth,
+                                           (\(currentHealth,
                                                (cam1, cam4, clippedcam, msgi, msgs, rtrigger,
                                                 trigger))
                                               ->
@@ -265,7 +276,7 @@ camera cam _ _ iD
                                                currentHealth)))))
                                 >>>
                                 arr
-                                  (\ (cam1, cam4, clippedcam, currentHealth, msgi, msgs, rtrigger,
+                                  (\(cam1, cam4, clippedcam, currentHealth, msgi, msgs, rtrigger,
                                       trigger)
                                      ->
                                          (msgs,
@@ -275,7 +286,7 @@ camera cam _ _ iD
                                ((first (iPre noEvent <<< identity) >>>
                                    loop
                                      (arr
-                                        (\ ((msges,
+                                        (\((msges,
                                              (cam1, cam4, clippedcam, currentHealth, msgi, rtrigger,
                                               trigger)),
                                             kills)
@@ -286,12 +297,12 @@ camera cam _ _ iD
                                         >>>
                                         (first
                                            (arr
-                                              (\ (kills, msges) ->
+                                              (\(kills, msges) ->
                                                  kills + length (findKills (event2List msges)))
                                               >>> (iPre 0 <<< identity))
                                            >>>
                                            arr
-                                             (\ (kills,
+                                             (\(kills,
                                                  (cam1, cam4, clippedcam, currentHealth, msges,
                                                   msgi, rtrigger, trigger))
                                                 ->
@@ -300,7 +311,7 @@ camera cam _ _ iD
                                                  kills)))))
                                   >>>
                                   arr
-                                    (\ (cam1, cam4, clippedcam, currentHealth, kills, msges, msgi,
+                                    (\(cam1, cam4, clippedcam, currentHealth, kills, msges, msgi,
                                         rtrigger, trigger)
                                        ->
                                        ((msgi, rtrigger),
@@ -308,11 +319,11 @@ camera cam _ _ iD
                                          trigger))))
                                  >>>
                                  (first
-                                    (arr (\ (msgi, rtrigger) -> (rtrigger, msgi)) >>>
+                                    (arr (\(msgi, rtrigger) -> (rtrigger, msgi)) >>>
                                        (iPre (noEvent, []) <<< identity))
                                     >>>
                                     arr
-                                      (\ ((rev, msgi2),
+                                      (\((rev, msgi2),
                                           (cam1, cam4, clippedcam, currentHealth, kills, msges,
                                            trigger))
                                          ->
@@ -322,7 +333,7 @@ camera cam _ _ iD
                                    >>>
                                    (first (iPre cam <<< identity) >>>
                                       arr
-                                        (\ (ccam,
+                                        (\(ccam,
                                             (cam1, cam4, currentHealth, kills, msges, msgi2, rev,
                                              trigger))
                                            ->
@@ -354,72 +365,90 @@ camera cam _ _ iD
                                                                                      (event2List
                                                                                         msges)))])}))
 
-event2List :: Event [a] -> [a]
+event2List
+  :: Event [a]
+  -> [a]
 event2List ev
   | isEvent ev = fromEvent ev
   | otherwise = []
 
-getMsg0 ::
-        Event [(ILKey, Message)] ->
-          [(ILKey, Message)] -> [(ILKey, Message)]
-getMsg0 ev ls
-  = if isEvent ev then (case findCoords (fromEvent ev) ++ ls of
-                            x -> x) else ls
+getMsg0
+  :: Event [(ILKey, Message)]
+  -> [(ILKey, Message)]
+  -> [(ILKey, Message)]
+getMsg0 ev ls =
+  if isEvent ev
+    then case findCoords (fromEvent ev) ++ ls of x -> x
+    else ls
 
-findKills :: [(ILKey, Message)] -> [ILKey]
+findKills
+  :: [(ILKey, Message)]
+  -> [ILKey]
 findKills ((k, EnemyDown) : kmsgs) = k : findKills kmsgs
-findKills ((_, _) : kmsgs) = findKills kmsgs
-findKills [] = []
+findKills ((_, _) : kmsgs)         = findKills kmsgs
+findKills []                       = []
 
-findEnemies :: [(ILKey, Message)] -> [ILKey]
+findEnemies
+  :: [(ILKey, Message)]
+  -> [ILKey]
 findEnemies ((k, PlayerLockedOn) : kmsgs) = k : findEnemies kmsgs
-findEnemies ((_, _) : kmsgs) = findEnemies kmsgs
-findEnemies [] = []
+findEnemies ((_, _) : kmsgs)              = findEnemies kmsgs
+findEnemies []                            = []
 
-toTargetPosition ::
-                 ILKey -> Vec3 -> ILKey -> (ILKey, (ILKey, Message))
-toTargetPosition iD position contact
-  = (contact, (iD, TargetPosition position))
+toTargetPosition
+  :: ILKey
+  -> Vec3
+  -> ILKey
+  -> (ILKey, (ILKey, Message))
+toTargetPosition iD position contact =
+  (contact, (iD, TargetPosition position))
 
-findCoords :: [(ILKey, Message)] -> [(ILKey, Message)]
-findCoords ((k, Coord x) : kmsgs)
-  = (k, Coord x) : findCoords kmsgs
-findCoords ((_, _) : kmsgs) = findCoords kmsgs
-findCoords [] = []
+findCoords
+  :: [(ILKey, Message)]
+  -> [(ILKey, Message)]
+findCoords ((k, Coord x) : kmsgs) = (k, Coord x) : findCoords kmsgs
+findCoords ((_, _) : kmsgs)       = findCoords kmsgs
+findCoords []                     = []
 
-getCoordFromMsg :: (ILKey, Message) -> Vec3
+getCoordFromMsg
+  :: (ILKey, Message)
+  -> Vec3
 getCoordFromMsg (_, Coord xyz) = xyz
-getCoordFromMsg _                = (0,0,0)
+getCoordFromMsg _              = (0, 0, 0)
 
-aicube ::
-       (Double, Double, Double) ->
-         (Double, Double, Double) ->
-           [(Double, Double, Double)] ->
-             String -> (AnimState, AnimState) -> ILKey -> Object
+-- |
+aicube
+  :: (Double, Double, Double)
+  -> (Double, Double, Double)
+  -> [(Double, Double, Double)]
+  -> String
+  -> (AnimState, AnimState)
+  -> ILKey
+  -> Object
 aicube (x, y, z) size waypoints modelname (ua, la) iD
-  = ((arr (\ oi -> let gi = oiGameInput oi in (gi, oi)) >>>
+  = ((arr (\oi -> let gi = oiGameInput oi in (gi, oi)) >>>
          first getT)
         >>>
         arr
-          (\ (t, oi) ->
+          (\(t, oi) ->
              let hitList = oiHit oi in
                let enemySighted = oiVisibleObjs oi in
                    (hitList, (enemySighted, hitList, oi, t))))
        >>>
        (first
           (arr
-             (\ hitList ->
+             (\hitList ->
                 if isEvent hitList then getFire (snd (head (fromEvent hitList))) else Nothing)
              >>> (iPre Nothing <<< identity))
           >>>
           arr
-            (\ (hitSource, (enemySighted, hitList, oi, t)) ->
+            (\(hitSource, (enemySighted, hitList, oi, t)) ->
                (hitSource, (enemySighted, hitList, hitSource, oi, t))))
          >>>
          ((first (arr (/= Nothing) >>> edge) >>>
              loop
                (arr
-                  (\ ((hitev1, (enemySighted, hitList, hitSource, oi, t)),
+                  (\((hitev1, (enemySighted, hitList, hitSource, oi, t)),
                       currentHealth)
                      ->
                      ((currentHealth, hitList),
@@ -427,17 +456,17 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                   >>>
                   (first
                      (arr
-                        (\ (currentHealth, hitList) ->
+                        (\(currentHealth, hitList) ->
                            if isEvent hitList then currentHealth - 3 else currentHealth)
                         >>> (iPre 100 <<< identity))
                      >>>
                      arr
-                       (\ (currentHealth, (enemySighted, hitSource, hitev1, oi, t)) ->
+                       (\(currentHealth, (enemySighted, hitSource, hitev1, oi, t)) ->
                           ((currentHealth, enemySighted, hitSource, hitev1, oi, t),
                            currentHealth)))))
             >>>
             arr
-              (\ (currentHealth, enemySighted, hitSource, hitev1, oi, t) ->
+              (\(currentHealth, enemySighted, hitSource, hitev1, oi, t) ->
                  (currentHealth,
                   (currentHealth, enemySighted, hitSource, hitev1, oi, t))))
            >>>
@@ -445,7 +474,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                >>>
                loop
                  (arr
-                    (\ ((hitev,
+                    (\((hitev,
                          (currentHealth, enemySighted, hitSource, hitev1, oi, t)),
                         isDead)
                        ->
@@ -454,12 +483,12 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                     >>>
                     (first
                        (arr
-                          (\ (hitev, isDead) ->
+                          (\(hitev, isDead) ->
                              isEvent hitev || isDead)
                           >>> (iPre False <<< identity))
                        >>>
                        arr
-                         (\ (isDead,
+                         (\(isDead,
                              (currentHealth, enemySighted, hitSource, hitev, hitev1, oi, t))
                             ->
                             ((currentHealth, enemySighted, hitSource, hitev, hitev1, isDead,
@@ -467,7 +496,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                              isDead)))))
               >>>
               arr
-                (\ (currentHealth, enemySighted, hitSource, hitev, hitev1, isDead,
+                (\(currentHealth, enemySighted, hitSource, hitev, hitev1, isDead,
                     oi, t)
                    ->
                    ((enemySighted, isDead),
@@ -476,13 +505,13 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
              >>>
              (((first
                   (arr
-                     (\ (enemySighted, isDead) ->
+                     (\(enemySighted, isDead) ->
                         isEvent enemySighted && not isDead)
                      >>> (iPre noEvent <<< edge))
                   >>>
                   loop
                     (arr
-                       (\ ((enemyS,
+                       (\((enemyS,
                             (currentHealth, enemySighted, hitSource, hitev, hitev1, isDead, oi,
                              t)),
                            enemy)
@@ -493,12 +522,12 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                        >>>
                        (first
                           (arr
-                             (\ (enemy, enemySighted) ->
+                             (\(enemy, enemySighted) ->
                                 if isEvent enemySighted then enemySighted else enemy)
                              >>> (iPre noEvent <<< identity))
                           >>>
                           arr
-                            (\ (enemy,
+                            (\(enemy,
                                 (currentHealth, enemyS, enemySighted, hitSource, hitev, hitev1,
                                  isDead, oi, t))
                                ->
@@ -508,7 +537,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                  >>>
                  loop
                    (arr
-                      (\ ((currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
+                      (\((currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
                            hitev1, isDead, oi, t),
                           targ)
                          ->
@@ -518,12 +547,12 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                       >>>
                       (first
                          (arr
-                            (\ (enemySighted, targ) ->
+                            (\(enemySighted, targ) ->
                                if isEvent enemySighted then cpos (oldCam (snd (head (fromEvent enemySighted)))) else targ)
                             >>> (iPre (0, 0, 0) <<< identity))
                          >>>
                          arr
-                           (\ (targ,
+                           (\(targ,
                                (currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
                                 hitev1, isDead, oi, t))
                               ->
@@ -532,7 +561,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                targ)))))
                 >>>
                 arr
-                  (\ (currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
+                  (\(currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
                       hitev1, isDead, oi, t, targ)
                      ->
                      (oi,
@@ -543,7 +572,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                   (arr oiMessage >>> (iPre noEvent <<< identity))
                   >>>
                   arr
-                    (\ (msgs,
+                    (\(msgs,
                         (currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
                          hitev1, isDead, oi, t, targ))
                        ->
@@ -553,14 +582,14 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                  >>>
                  (first
                     (arr
-                       (\ (isDead, msgs) ->
+                       (\(isDead, msgs) ->
                           (isEvent msgs && not isDead) && (case getTargetPosition (fromEvent msgs) of
                                                                Just _ -> True
-                                                               _ -> False))
+                                                               _      -> False))
                        >>> edge)
                     >>>
                     arr
-                      (\ (msgReceived,
+                      (\(msgReceived,
                           (currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
                            hitev1, isDead, msgs, oi, t, targ))
                          ->
@@ -570,14 +599,14 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                    >>>
                    (first
                       (arr
-                         (\ (isDead, msgs) ->
+                         (\(isDead, msgs) ->
                             (isEvent msgs && not isDead) && (case getTargetPosition2 (fromEvent msgs) of
                                                                  Just _ -> True
-                                                                 _ -> False))
+                                                                 _      -> False))
                          >>> edge)
                       >>>
                       arr
-                        (\ (respond2Attack,
+                        (\(respond2Attack,
                             (currentHealth, enemy, enemyS, enemySighted, hitSource, hitev,
                              hitev1, isDead, msgReceived, oi, t, targ))
                            ->
@@ -587,12 +616,12 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                      >>>
                      (first
                         (arr
-                           (\ (enemySighted, msgReceived) ->
+                           (\(enemySighted, msgReceived) ->
                               isNoEvent enemySighted && isNoEvent msgReceived)
                            >>> (iPre noEvent <<< edge))
                         >>>
                         arr
-                          (\ (targetLost1,
+                          (\(targetLost1,
                               (currentHealth, enemy, enemyS, hitSource, hitev, hitev1, isDead,
                                oi, respond2Attack, t, targ))
                              ->
@@ -602,7 +631,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                        >>>
                        (first
                           (arr
-                             (\ (enemyS, targetLost1) ->
+                             (\(enemyS, targetLost1) ->
                                 ((),
                                  (enemyS `tag` constant noEvent) `lMerge`
                                    (targetLost1 `tag` repeatedly 0.5 (Event ()))))
@@ -610,7 +639,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                           >>>
                           loop
                             (arr
-                               (\ ((_,
+                               (\((_,
                                     (currentHealth, enemy, enemyS, hitSource, hitev, hitev1, isDead,
                                      oi, respond2Attack, t, targ, targetLost1)),
                                    ~(angle, lEndEv, oldPos, uEndEv))
@@ -622,7 +651,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                >>>
                                (first
                                   (arr
-                                     (\ (angle, enemyS, hitev, lEndEv, oi, oldPos, respond2Attack,
+                                     (\(angle, enemyS, hitev, lEndEv, oi, oldPos, respond2Attack,
                                          uEndEv)
                                         ->
                                         ((oi, uEndEv, lEndEv),
@@ -634,7 +663,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                      >>> drSwitch (followWayPoints (x, y, z) waypoints))
                                   >>>
                                   arr
-                                    (\ ((newPos, oldPos, angle, ptch, attack,
+                                    (\((newPos, oldPos, angle, ptch, attack,
                                          (upperIdx, lowerIdx)),
                                         (currentHealth, enemy, hitSource, hitev, hitev1, isDead, t,
                                          targ, targetLost1))
@@ -646,7 +675,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                  >>>
                                  (first (updateAnimSF ua) >>>
                                     arr
-                                      (\ ((uEndEv, upperstate),
+                                      (\((uEndEv, upperstate),
                                           (angle, attack, currentHealth, enemy, hitSource, hitev,
                                            hitev1, isDead, lowerIdx, newPos, oldPos, ptch, t, targ,
                                            targetLost1))
@@ -657,10 +686,10 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                            uEndEv, upperstate))))
                                    >>>
                                    (first
-                                      (arr (\ (lowerIdx, t) -> (t, lowerIdx)) >>> updateAnimSF la)
+                                      (arr (\(lowerIdx, t) -> (t, lowerIdx)) >>> updateAnimSF la)
                                       >>>
                                       arr
-                                        (\ ((lEndEv, lowerstate),
+                                        (\((lEndEv, lowerstate),
                                             (angle, attack, currentHealth, enemy, hitSource, hitev,
                                              hitev1, isDead, newPos, oldPos, ptch, targ,
                                              targetLost1, uEndEv, upperstate))
@@ -671,7 +700,7 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                             (angle, lEndEv, oldPos, uEndEv))))))
                          >>>
                          arr
-                           (\ (angle, attack, currentHealth, enemy, hitSource, hitev, hitev1,
+                           (\(angle, attack, currentHealth, enemy, hitSource, hitev, hitev1,
                                isDead, lowerstate, newPos, oldPos, ptch, targ, targetLost1,
                                upperstate)
                               ->
@@ -697,62 +726,61 @@ aicube (x, y, z) size waypoints modelname (ua, la) iD
                                               `lMerge` hitev1
                                               `tag` [(fromJust hitSource, (iD, PlayerLockedOn2))]})
 
-getFire :: ObsObjState -> Maybe ILKey
+getFire
+  :: ObsObjState
+  -> Maybe ILKey
 getFire obj
   | isRay obj = Just (firedFrom obj)
   | otherwise = Nothing
 
-getTargetPosition :: [(ILKey, Message)] -> Maybe Vec3
+getTargetPosition
+  :: [(ILKey, Message)]
+  -> Maybe Vec3
 getTargetPosition ((_, TargetPosition pos) : _) = Just pos
-getTargetPosition (_ : rest) = getTargetPosition rest
-getTargetPosition [] = Nothing
+getTargetPosition (_ : rest)                    = getTargetPosition rest
+getTargetPosition []                            = Nothing
 
-getTargetPosition2 :: [(ILKey, Message)] -> Maybe Vec3
+getTargetPosition2
+  :: [(ILKey, Message)]
+  -> Maybe Vec3
 getTargetPosition2 ((_, TargetPosition2 pos) : _) = Just pos
-getTargetPosition2 (_ : rest) = getTargetPosition2 rest
-getTargetPosition2 [] = Nothing
+getTargetPosition2 (_ : rest)                     = getTargetPosition2 rest
+getTargetPosition2 []                             = Nothing
 
-getMuzzlePoint :: (Vec3, Vec3) -> (Vec3, Vec3)
-getMuzzlePoint ((x, y, z), (ox, oy, oz))
-  = let (x3, _, z3)
-          = normalise (vectorSub (ox, oy + 45, oz) (x, y, z))
-        (x7, _, z7) = normalise (vectorSub (ox, 0, oz) (x, 0, z))
-        (x4, _, z4) = normalise $ crossProd (x3, 0, z3) (0, 1, 0)
-        (x5, y5, z5)
-          = (x + (x7 * (- 18.55)) + (x4 * 9.6), y + 4,
-             z + (z7 * (- 18.55)) + (z4 * 9.6))
-        (x12, y12, z12)
-          = normalise (vectorSub (ox, oy - 5, oz) (x, y, z))
-        (x6, y6, z6)
-          = vectorAdd (x5, y5, z5) (x12 * 42, y12 * 42, z12 * 42)
-        (x9, y9, z9) = normalise (vectorSub (x6, y6, z6) (x5, y5, z5))
-        (x10, y10, z10) = normalise $ crossProd (x9, y9, z9) (0, 1, 0)
-        (x13, y13, z13)
-          = normalise $ crossProd (x9, y9, z9) (x10, y10, z10)
-        muzzlePoint
-          = vectorAdd (x6, y6, z6)
-              (x13 * (- 9.5), y13 * (- 9.5), z13 * (- 9.5))
-        muzzleEnd
-          = vectorAdd (x5, y5, z5)
-              (x13 * (- 9.5), y13 * (- 9.5), z13 * (- 9.5))
-        fireVec = normalise (vectorSub muzzlePoint muzzleEnd)
-      in (muzzlePoint, fireVec)
+getMuzzlePoint
+  :: (Vec3, Vec3)
+  -> (Vec3, Vec3)
+getMuzzlePoint ((x, y, z), (ox, oy, oz)) =
+  let (x3, _, z3) = normalise (vectorSub (ox, oy + 45, oz) (x, y, z))
+      (x7, _, z7) = normalise (vectorSub (ox, 0, oz) (x, 0, z))
+      (x4, _, z4) = normalise $ crossProd (x3, 0, z3) (0, 1, 0)
+      (x5, y5, z5) =
+        (x + (x7 * (- 18.55)) + (x4 * 9.6), y + 4,
+         z + (z7 * (- 18.55)) + (z4 * 9.6))
+      (x12, y12, z12) = normalise (vectorSub (ox, oy - 5, oz) (x, y, z))
+      (x6, y6, z6) = vectorAdd (x5, y5, z5) (x12 * 42, y12 * 42, z12 * 42)
+      (x9, y9, z9) = normalise (vectorSub (x6, y6, z6) (x5, y5, z5))
+      (x10, y10, z10) = normalise $ crossProd (x9, y9, z9) (0, 1, 0)
+      (x13, y13, z13) = normalise $ crossProd (x9, y9, z9) (x10, y10, z10)
+      muzzlePoint = vectorAdd (x6, y6, z6) (x13 * (- 9.5), y13 * (- 9.5), z13 * (- 9.5))
+      muzzleEnd   = vectorAdd (x5, y5, z5) (x13 * (- 9.5), y13 * (- 9.5), z13 * (- 9.5))
+      fireVec = normalise (vectorSub muzzlePoint muzzleEnd)
+  in (muzzlePoint, fireVec)
 
 falling :: SF (Bool, GameInput, Double) Double
-falling
-  = loop
+falling =
+  loop
        (arr
-          (\ ((lnd, _, dt), pos) ->
+          (\((lnd, _, dt), pos) ->
              if lnd then (- 0.5) else pos - (6 * 200 * dt))
-          >>> ((iPre 0 <<< identity) >>> arr (\ pos -> (pos, pos))))
+          >>> ((iPre 0 <<< identity) >>> arr (\pos -> (pos, pos))))
 
-turnToFaceTarget ::
-                 (Vec3, Double) ->
-                   SF (ObjInput, Event (), Event ())
-                     (Vec3, Vec3, Double, Double, Event (), (Int, Int))
-turnToFaceTarget (currentPos, initialAngle)
-  = arr
-       (\ (oi, ev1, ev2) ->
+turnToFaceTarget
+  :: (Vec3, Double)
+  -> SF (ObjInput, Event (), Event ()) (Vec3, Vec3, Double, Double, Event (), (Int, Int))
+turnToFaceTarget (currentPos, initialAngle) =
+  arr
+       (\(oi, ev1, ev2) ->
           let gi = oiGameInput oi in
             let clippedPos = oiCollisionPos oi in
               let grounded = oiOnLand oi in
@@ -761,51 +789,51 @@ turnToFaceTarget (currentPos, initialAngle)
        ((first getDt >>>
            loop
              (arr
-                (\ ((dt, (clippedPos, ev1, ev2, gi, grounded, oi)), cnt) ->
+                (\((dt, (clippedPos, ev1, ev2, gi, grounded, oi)), cnt) ->
                    (cnt, (clippedPos, dt, ev1, ev2, gi, grounded, oi)))
                 >>>
                 (first (arr (+ 1) >>> (iPre 0 <<< identity)) >>>
                    arr
-                     (\ (cnt, (clippedPos, dt, ev1, ev2, gi, grounded, oi)) ->
+                     (\(cnt, (clippedPos, dt, ev1, ev2, gi, grounded, oi)) ->
                         ((clippedPos, cnt, dt, ev1, ev2, gi, grounded, oi), cnt)))))
           >>>
           arr
-            (\ (clippedPos, cnt, dt, ev1, ev2, gi, grounded, oi) ->
+            (\(clippedPos, cnt, dt, ev1, ev2, gi, grounded, oi) ->
                (clippedPos, (cnt, dt, ev1, ev2, gi, grounded, oi))))
          >>>
          (first (iPre currentPos <<< identity) >>>
             arr
-              (\ ((ox1, oy1, oz1), (cnt, dt, ev1, ev2, gi, grounded, oi)) ->
+              (\((ox1, oy1, oz1), (cnt, dt, ev1, ev2, gi, grounded, oi)) ->
                  ((cnt, ox1, oy1, oz1), (dt, ev1, ev2, gi, grounded, oi))))
            >>>
            (first
               (arr
-                 (\ (cnt, ox1, oy1, oz1) ->
+                 (\(cnt, ox1, oy1, oz1) ->
                     if cnt > (3 :: Int) && (ox1, oy1, oz1) /= currentPos then (ox1, oy1, oz1) else currentPos)
                  >>> identity)
               >>>
               arr
-                (\ ((ox, oy, oz), (dt, ev1, ev2, gi, grounded, oi)) ->
+                (\((ox, oy, oz), (dt, ev1, ev2, gi, grounded, oi)) ->
                    ((dt, gi, grounded), (ev1, ev2, oi, ox, oy, oz))))
              >>>
              ((((((first
-                     (arr (\ (dt, gi, grounded) -> (grounded, gi, dt)) >>>
+                     (arr (\(dt, gi, grounded) -> (grounded, gi, dt)) >>>
                         (iPre 0 <<< falling))
                      >>>
                      arr
-                       (\ (yVel, (ev1, ev2, oi, ox, oy, oz)) ->
+                       (\(yVel, (ev1, ev2, oi, ox, oy, oz)) ->
                           let enemySighted = oiVisibleObjs oi in
                             (enemySighted, ev1, ev2, ox, oy, oz, yVel)))
                     >>>
                     loop
                       (arr
-                         (\ ((enemySighted, ev1, ev2, ox, oy, oz, yVel), targetAnglei) ->
+                         (\((enemySighted, ev1, ev2, ox, oy, oz, yVel), targetAnglei) ->
                             ((enemySighted, ox, oy, oz, targetAnglei),
                              (enemySighted, ev1, ev2, ox, oy, oz, yVel)))
                          >>>
                          (first
                             (arr
-                               (\ (enemySighted, ox, oy, oz, targetAnglei) ->
+                               (\(enemySighted, ox, oy, oz, targetAnglei) ->
                                   if isEvent enemySighted then getAngle
                                             ((ox, oy, oz),
                                              cpos
@@ -813,13 +841,13 @@ turnToFaceTarget (currentPos, initialAngle)
                                >>> (iPre initialAngle <<< identity))
                             >>>
                             arr
-                              (\ (targetAnglei, (enemySighted, ev1, ev2, ox, oy, oz, yVel)) ->
+                              (\(targetAnglei, (enemySighted, ev1, ev2, ox, oy, oz, yVel)) ->
                                  ((enemySighted, ev1, ev2, ox, oy, oz, targetAnglei, yVel),
                                   targetAnglei)))))
                    >>>
                    loop
                      (arr
-                        (\ ((enemySighted, ev1, ev2, ox, oy, oz, targetAnglei, yVel),
+                        (\((enemySighted, ev1, ev2, ox, oy, oz, targetAnglei, yVel),
                             angle)
                            ->
                            let targetAngle
@@ -835,7 +863,7 @@ turnToFaceTarget (currentPos, initialAngle)
                         >>>
                         (first ((initialAngle +) ^<< integral) >>>
                            arr
-                             (\ (angle, (enemySighted, ev1, ev2, ox, oy, oz, targetAngle, yVel))
+                             (\(angle, (enemySighted, ev1, ev2, ox, oy, oz, targetAngle, yVel))
                                 ->
                                 let legState
                                       = if abs (angle - targetAngle) < 2 then idleLegs else turn
@@ -846,11 +874,11 @@ turnToFaceTarget (currentPos, initialAngle)
                           >>>
                           (first
                              (arr
-                                (\ (ev2, legState) -> (legState == idleLegs) && isEvent ev2)
+                                (\(ev2, legState) -> (legState == idleLegs) && isEvent ev2)
                                 >>> edge)
                              >>>
                              arr
-                               (\ (switch2idle,
+                               (\(switch2idle,
                                    (angle, enemySighted, ev1, legState, ox, oy, oz, targetAngle,
                                     yVel))
                                   ->
@@ -860,7 +888,7 @@ turnToFaceTarget (currentPos, initialAngle)
                             >>>
                             (first (arr (== turn) >>> edge) >>>
                                arr
-                                 (\ (turning,
+                                 (\(turning,
                                      (angle, enemySighted, ev1, ox, oy, oz, switch2idle,
                                       targetAngle, yVel))
                                     ->
@@ -869,14 +897,14 @@ turnToFaceTarget (currentPos, initialAngle)
                               >>>
                               (first
                                  (arr
-                                    (\ (switch2idle, turning) ->
+                                    (\(switch2idle, turning) ->
                                        ((),
                                         turning `tag` constant turn `lMerge` switch2idle `tag`
                                           constant idleLegs))
                                     >>> drSwitch (constant stand))
                                  >>>
                                  arr
-                                   (\ (legsAnim,
+                                   (\(legsAnim,
                                        (angle, enemySighted, ev1, ox, oy, oz, targetAngle, yVel))
                                       ->
                                       ((angle, enemySighted, ev1, legsAnim, ox, oy, oz, targetAngle,
@@ -885,7 +913,7 @@ turnToFaceTarget (currentPos, initialAngle)
                   >>>
                   loop
                     (arr
-                       (\ ((angle, enemySighted, ev1, legsAnim, ox, oy, oz, targetAngle,
+                       (\((angle, enemySighted, ev1, legsAnim, ox, oy, oz, targetAngle,
                             yVel),
                            targetPitch)
                           ->
@@ -895,7 +923,7 @@ turnToFaceTarget (currentPos, initialAngle)
                        >>>
                        (first
                           (arr
-                             (\ (enemySighted, ox, oy, oz, targetPitch) ->
+                             (\(enemySighted, ox, oy, oz, targetPitch) ->
                                 if isEvent enemySighted then getVertAngle
                                           ((ox, oy, oz),
                                            vectorAdd
@@ -905,7 +933,7 @@ turnToFaceTarget (currentPos, initialAngle)
                              >>> (iPre 0 <<< identity))
                           >>>
                           arr
-                            (\ (targetPitch,
+                            (\(targetPitch,
                                 (angle, enemySighted, ev1, legsAnim, ox, oy, oz, targetAngle,
                                  yVel))
                                ->
@@ -915,7 +943,7 @@ turnToFaceTarget (currentPos, initialAngle)
                  >>>
                  loop
                    (arr
-                      (\ ((angle, enemySighted, ev1, legsAnim, ox, oy, oz, targetAngle,
+                      (\((angle, enemySighted, ev1, legsAnim, ox, oy, oz, targetAngle,
                            targetPitch, yVel),
                           ptch)
                          ->
@@ -928,7 +956,7 @@ turnToFaceTarget (currentPos, initialAngle)
                       >>>
                       (first ((0 +) ^<< integral) >>>
                          arr
-                           (\ (ptch,
+                           (\(ptch,
                                (angle, enemySighted, ev1, legsAnim, ox, oy, oz, targetAngle,
                                 targetPitch, yVel))
                               ->
@@ -937,7 +965,7 @@ turnToFaceTarget (currentPos, initialAngle)
                                ptch)))))
                 >>>
                 arr
-                  (\ (angle, enemySighted, ev1, legsAnim, ox, oy, oz, ptch,
+                  (\(angle, enemySighted, ev1, legsAnim, ox, oy, oz, ptch,
                       targetAngle, targetPitch, yVel)
                      ->
                      (ev1,
@@ -947,7 +975,7 @@ turnToFaceTarget (currentPos, initialAngle)
                (first (arr isEvent >>> (iPre noEvent <<< edge))
                   >>>
                   arr
-                    (\ (attack,
+                    (\(attack,
                         (angle, enemySighted, legsAnim, ox, oy, oz, ptch, targetAngle,
                          targetPitch, yVel))
                        ->
@@ -956,26 +984,25 @@ turnToFaceTarget (currentPos, initialAngle)
                  >>>
                  (first
                     (arr
-                       (\ (angle, enemySighted, ptch, targetAngle, targetPitch) ->
+                       (\(angle, enemySighted, ptch, targetAngle, targetPitch) ->
                           if
                             (abs (ptch - targetPitch) < 6) && (abs (angle - targetAngle) < 6)
                                && isEvent enemySighted then attack1 else stand)
                        >>> (iPre stand <<< identity))
                     >>>
                     arr
-                      (\ (torsoAnim, (angle, attack, legsAnim, ox, oy, oz, ptch, yVel))
+                      (\(torsoAnim, (angle, attack, legsAnim, ox, oy, oz, ptch, yVel))
                          ->
                          ((ox, oy + yVel, oz), (ox, oy, oz), angle, ptch, attack,
                           (torsoAnim, legsAnim))))
 
-followWayPoints ::
-                Vec3 ->
-                  [Vec3] ->
-                    SF (ObjInput, Event (), Event ())
-                      (Vec3, Vec3, Double, Double, Event (), (Int, Int))
-followWayPoints (x, y, z) waypoints
-  = arr
-       (\ (oi, ev1, ev2) ->
+followWayPoints
+  :: Vec3
+  -> [Vec3]
+  -> SF (ObjInput, Event (), Event ()) (Vec3, Vec3, Double, Double, Event (), (Int, Int))
+followWayPoints (x, y, z) waypoints =
+  arr
+       (\(oi, ev1, ev2) ->
           let gi = oiGameInput oi in
             let clippedPos = oiCollisionPos oi in
               let grounded = oiOnLand oi in
@@ -983,31 +1010,31 @@ followWayPoints (x, y, z) waypoints
        >>>
        (first (iPre (x, y, z) <<< identity) >>>
           arr
-            (\ ((ox, oy, oz), (ev1, ev2, gi, grounded, oi)) ->
+            (\((ox, oy, oz), (ev1, ev2, gi, grounded, oi)) ->
                (gi, (ev1, ev2, gi, grounded, oi, ox, oy, oz))))
          >>>
          (first getT >>>
             arr
-              (\ (_, (ev1, ev2, gi, grounded, oi, ox, oy, oz)) ->
+              (\(_, (ev1, ev2, gi, grounded, oi, ox, oy, oz)) ->
                  (gi, (ev1, ev2, gi, grounded, oi, ox, oy, oz))))
            >>>
            (first getDt >>>
               arr
-                (\ (dt, (ev1, ev2, gi, grounded, oi, ox, oy, oz)) ->
+                (\(dt, (ev1, ev2, gi, grounded, oi, ox, oy, oz)) ->
                    ((dt, gi, grounded), (dt, ev1, ev2, oi, ox, oy, oz))))
              >>>
              (first
-                (arr (\ (dt, gi, grounded) -> (grounded, gi, dt)) >>>
+                (arr (\(dt, gi, grounded) -> (grounded, gi, dt)) >>>
                    (iPre 0 <<< falling))
                 >>>
                 loop
                   (arr
-                     (\ ((yVel, (dt, ev1, ev2, oi, ox, oy, oz)), wpl) ->
+                     (\((yVel, (dt, ev1, ev2, oi, ox, oy, oz)), wpl) ->
                         (wpl, (dt, ev1, ev2, oi, ox, oy, oz, yVel)))
                      >>>
                      (first (iPre (cycle waypoints) <<< identity) >>>
                         arr
-                          (\ (wps, (dt, ev1, ev2, oi, ox, oy, oz, yVel)) ->
+                          (\(wps, (dt, ev1, ev2, oi, ox, oy, oz, yVel)) ->
                              let [wp1, wp2] = take 2 wps in
                                let (pastWp, (dx, _, dz)) = stepdist wp1 wp2 (ox, oy, oz) 100 dt
                                  in
@@ -1016,7 +1043,7 @@ followWayPoints (x, y, z) waypoints
                        >>>
                        (first edge >>>
                           arr
-                            (\ (pastEv,
+                            (\(pastEv,
                                 (dx, dz, ev1, ev2, oi, ox, oy, oz, pastWp, wp2, wps, yVel))
                                ->
                                let angle = getAngle ((ox, oy, oz), (ox + dx, oy + yVel, oz + dz))
@@ -1027,7 +1054,7 @@ followWayPoints (x, y, z) waypoints
                          >>>
                          (first
                             (arr
-                               (\ (angle, ev1, ev2, newPos, oi, pastEv, wp2) ->
+                               (\(angle, ev1, ev2, newPos, oi, pastEv, wp2) ->
                                   ((oi, ev1, ev2),
                                    pastEv `tag` turnToNextWp angle (getAngle (newPos, wp2))))
                                >>>
@@ -1035,7 +1062,7 @@ followWayPoints (x, y, z) waypoints
                                  (constant (True, False, getAngle ((x, y, z), head waypoints))))
                             >>>
                             arr
-                              (\ ((notturning, largeEnough, turnAngle),
+                              (\((notturning, largeEnough, turnAngle),
                                   (angle, newPos, ox, oy, oz, pastWp, wps))
                                  ->
                                  let wpl
@@ -1045,7 +1072,7 @@ followWayPoints (x, y, z) waypoints
                                     wpl)))))
                >>>
                arr
-                 (\ (angle, largeEnough, newPos, notturning, ox, oy, oz, turnAngle)
+                 (\(angle, largeEnough, newPos, notturning, ox, oy, oz, turnAngle)
                     ->
                     let holdAngle
                           | not largeEnough = angle
@@ -1059,12 +1086,13 @@ followWayPoints (x, y, z) waypoints
                         in
                         (newPos, (ox, oy, oz), holdAngle, 0, noEvent, (stand, legAnim)))
 
-turnToNextWp ::
-             Double ->
-               Double -> SF (ObjInput, Event (), Event ()) (Bool, Bool, Double)
-turnToNextWp currentangle nextAngle
-  = ((arr
-         (\ (_, _, lev) ->
+turnToNextWp
+  :: Double
+  -> Double
+  -> SF (ObjInput, Event (), Event ()) (Bool, Bool, Double)
+turnToNextWp currentangle nextAngle =
+  ((arr
+         (\(_, _, lev) ->
             let targetAngle
                   = if
                       abs (currentangle - nextAngle) <
@@ -1073,206 +1101,204 @@ turnToNextWp currentangle nextAngle
          >>>
          loop
            (arr
-              (\ ((lev, targetAngle), angle) ->
+              (\((lev, targetAngle), angle) ->
                  let angularV
                        = if abs (angle - targetAngle) > 3 then (if angle < targetAngle then 360 else (- 360)) else targetAngle - angle
                    in (angularV, (lev, targetAngle)))
               >>>
               (first ((currentangle +) ^<< integral) >>>
                  arr
-                   (\ (angle, (lev, targetAngle)) ->
+                   (\(angle, (lev, targetAngle)) ->
                       ((angle, lev, targetAngle), angle)))))
         >>>
         arr
-          (\ (angle, lev, targetAngle) ->
+          (\(angle, lev, targetAngle) ->
              let legState
                    = if abs (angle - targetAngle) < 3 then idleLegs else turn
                in ((legState, lev), (angle, targetAngle))))
        >>>
        (first
-          (arr (\ (legState, lev) -> legState == idleLegs && isEvent lev)
+          (arr (\(legState, lev) -> legState == idleLegs && isEvent lev)
              >>> (iPre noEvent <<< edge))
           >>>
           first
-            (arr (\ switch2idle -> ((), switch2idle `tag` constant True)) >>>
+            (arr (\switch2idle -> ((), switch2idle `tag` constant True)) >>>
                rSwitch (constant False)))
          >>>
          arr
-           (\ (ret, (angle, targetAngle)) ->
+           (\(ret, (angle, targetAngle)) ->
               (ret, abs (currentangle - targetAngle) > 30, angle))
 
-stepdist ::
-         Vec3 -> Vec3 -> Vec3 -> Double -> Double -> (Bool, Vec3)
-stepdist (wx1, _, wz1) (_, _, _) (x, _, z) vel dt
-  = let (dx, _, dz) = normalise $ vectorSub (wx1, 0, wz1) (x, 0, z)
-        distance = sqrt (((x - wx1) * (x - wx1)) + ((z - wz1) * (z - wz1)))
-        remvel = distance * (distance / (vel * dt))
-      in
-      if distance > (vel * dt) then (False, (dx * vel * dt, 0, dz * vel * dt)) else (True, (dx * remvel, 0, dz * remvel))
+stepdist
+  :: Vec3
+  -> Vec3
+  -> Vec3
+  -> Double
+  -> Double
+  -> (Bool, Vec3)
+stepdist (wx1, _, wz1) (_, _, _) (x, _, z) vel dt =
+  let (dx, _, dz) = normalise $ vectorSub (wx1, 0, wz1) (x, 0, z)
+      distance = sqrt (((x - wx1) * (x - wx1)) + ((z - wz1) * (z - wz1)))
+      remvel = distance * (distance / (vel * dt))
+  in if distance > (vel * dt) then (False, (dx * vel * dt, 0, dz * vel * dt)) else (True, (dx * remvel, 0, dz * remvel))
 
-playDead ::
-         Vec3 ->
-           Double ->
-             SF (ObjInput, Event (), Event ())
-               (Vec3, Vec3, Double, Double, Event (), (Int, Int))
-playDead start angle
-  = arr (\ (_, ev1, _) -> ev1) >>>
-       (notYet >>> arr (\ ev -> ((), ev `tag` constant dead1))) >>>
-         (drSwitch (constant death1) >>>
-            arr
-              (\ death -> (start, start, angle, 0, noEvent, (death, death))))
+playDead
+  :: Vec3
+  -> Double
+  -> SF (ObjInput, Event (), Event ()) (Vec3, Vec3, Double, Double, Event (), (Int, Int))
+playDead start angle =
+  arr (\(_, ev1, _) -> ev1) >>>
+  (notYet >>> arr (\ev -> ((), ev `tag` constant dead1))) >>>
+  (drSwitch (constant death1) >>> arr (\death -> (start, start, angle, 0, noEvent, (death, death))))
 
 getAngle :: (Vec3, Vec3) -> Double
-getAngle ((x, _, z), (vx, _, vz))
-  = let angle
-          = acos $
-              dotProd (normalise $ vectorSub (vx, 0, vz) (x, 0, z)) (1, 0, 0)
-      in
-      if vz > z then 360 - (angle * 180 / pi) else angle * 180 / pi
+getAngle ((x, _, z), (vx, _, vz)) =
+  let angle = acos $ dotProd (normalise $ vectorSub (vx, 0, vz) (x, 0, z)) (1, 0, 0)
+  in if vz > z then 360 - (angle * 180 / pi) else angle * 180 / pi
 
-getVertAngle :: (Vec3, Vec3) -> Double
-getVertAngle ((x, y, z), (vx, vy, vz))
-  = let angle1
-          = acos $
-              dotProd (normalise $ vectorSub (vx, vy, vz) (x, y, z)) (0, 1, 0)
-      in ((angle1 * 180 / pi) - 90)
+getVertAngle
+  :: (Vec3, Vec3)
+  -> Double
+getVertAngle ((x, y, z), (vx, vy, vz)) =
+  let angle1 = acos $ dotProd (normalise $ vectorSub (vx, vy, vz) (x, y, z)) (0, 1, 0)
+  in ((angle1 * 180 / pi) - 90)
 
-updateAnimSF :: AnimState -> SF (Double, Int) (Event (), AnimState)
-updateAnimSF iAnim
-  = loop
-       (arr
-          (\ ((tme, animIndex), anim2) ->
-             ((anim2, animIndex, tme), animIndex))
-          >>>
-          (first
-             (arr (\ (anim2, animIndex, tme) -> (animIndex, tme, anim2)) >>>
-                (iPre (False, iAnim) <<< arr updateAnim))
-             >>>
-             arr
-               (\ ((hasLooped, anim2), animIndex) ->
-                  ((anim2, animIndex, hasLooped), anim2))))
-       >>>
-       arr
-         (\ (anim2, animIndex, hasLooped) ->
-            if hasLooped then (if animIndex == dead1 then (noEvent, anim2) else (Event (), anim2)) else (noEvent, anim2))
+updateAnimSF
+  :: AnimState
+  -> SF (Double, Int) (Event (), AnimState)
+updateAnimSF iAnim =
+  loop (
+    arr (\((tme, animIndex), anim2) -> ((anim2, animIndex, tme), animIndex))
+    >>>
+    ( first (arr (\(anim2, animIndex, tme) -> (animIndex, tme, anim2)) >>> (iPre (False, iAnim) <<< arr updateAnim))
+      >>>
+      arr (\((hasLooped, anim2), animIndex) -> ((anim2, animIndex, hasLooped), anim2))
+    )
+  )
+  >>>
+  arr (\(anim2, animIndex, hasLooped) ->
+    if hasLooped
+      then (if animIndex == dead1
+        then (noEvent, anim2)
+        else (Event (), anim2))
+      else (noEvent, anim2))
 
 moves :: SF (Double, Camera) Camera
-moves
-  = arr
-       (\ (speed, cam) ->
-          let (x, y, z) = cpos cam
-              (vpx, vpy, vpz) = viewPos cam
-              strafevec
-                = normalise
-                    (crossProd (vectorSub (viewPos cam) (cpos cam)) (upVec cam))
-              (vx, _, vz) = normalise (crossProd (upVec cam) strafevec)
-              newx = (vx * speed)
-              newz = (vz * speed)
-              newvx = (vx * speed)
-              newvz = (vz * speed)
-            in
-            Camera{cpos = (x + newx, y, z + newz),
-                   viewPos = (vpx + newvx, vpy, vpz + newvz), upVec = upVec cam})
+moves =
+  arr (\(speed, cam) ->
+    let (x, y, z) = cpos cam
+        (vpx, vpy, vpz) = viewPos cam
+        strafevec
+          = normalise
+              (crossProd (vectorSub (viewPos cam) (cpos cam)) (upVec cam))
+        (vx, _, vz) = normalise (crossProd (upVec cam) strafevec)
+        newx = (vx * speed)
+        newz = (vz * speed)
+        newvx = (vx * speed)
+        newvz = (vz * speed)
+    in Camera
+      { cpos = (x + newx, y, z + newz)
+      , viewPos = (vpx + newvx, vpy, vpz + newvz)
+      , upVec = upVec cam
+      })
 
 strafes :: SF (Double, Camera) Camera
-strafes
-  = arr
-       (\ (speed, cam) ->
-          let (sx, _, sz)
-                = normalise
-                    (crossProd (vectorSub (viewPos cam) (cpos cam)) (upVec cam))
-              (x, y, z) = cpos cam
-              (vx, vy, vz) = viewPos cam
-              newx = (sx * speed)
-              newz = (sz * speed)
-              newvx = (sx * speed)
-              newvz = (sz * speed)
-            in
-            Camera{cpos = (x + newx, y, z + newz),
-                   viewPos = (vx + newvx, vy, vz + newvz), upVec = upVec cam})
+strafes =
+  arr (\(speed, cam) ->
+    let (sx, _, sz) = normalise (crossProd (vectorSub (viewPos cam) (cpos cam)) (upVec cam))
+        (x, y, z) = cpos cam
+        (vx, vy, vz) = viewPos cam
+        newx = (sx * speed)
+        newz = (sz * speed)
+        newvx = (sx * speed)
+        newvz = (sz * speed)
+    in Camera
+      { cpos = (x + newx, y, z + newz)
+      , viewPos = (vx + newvx, vy, vz + newvz)
+      , upVec = upVec cam
+      })
 
-movementKS :: Double -> SF GameInput Double
-movementKS speed
-  = keyStat >>>
-       loop
-         (arr (uncurry nextSpeed) >>>
-            ((iPre 0 <<< identity) >>> arr (\ v -> (v, v))))
-  where nextSpeed key v
-          | key == Event ('w', True) = speed
-          | key == Event ('s', True) = - speed
-          | key == Event ('w', False) || key == Event ('s', False) = 0
-          | otherwise = v
+movementKS
+  :: Double
+  -> SF GameInput Double
+movementKS speed =
+  keyStat >>>
+  loop (arr (uncurry nextSpeed) >>> ((iPre 0 <<< identity) >>> arr (\v -> (v, v))))
+  where
+    nextSpeed key v
+      | key == Event ('w', True) = speed
+      | key == Event ('s', True) = -speed
+      | key == Event ('w', False) || key == Event ('s', False) = 0
+      | otherwise = v
 
-strafeKS :: Double -> SF GameInput Double
-strafeKS speed
-  = keyStat >>>
-       loop
-         (arr (uncurry nextSpeed) >>>
-            ((iPre 0 <<< identity) >>> arr (\ v -> (v, v))))
-  where nextSpeed key v
-          | key == Event ('d', True) = speed
-          | key == Event ('a', True) = - speed
-          | key == Event ('d', False) || key == Event ('a', False) = 0
-          | otherwise = v
+strafeKS
+  :: Double
+  -> SF GameInput Double
+strafeKS speed =
+  keyStat >>>
+  loop (arr (uncurry nextSpeed) >>> ((iPre 0 <<< identity) >>> arr (\v -> (v, v))))
+  where
+    nextSpeed key v
+      | key == Event ('d', True) = speed
+      | key == Event ('a', True) = -speed
+      | key == Event ('d', False) || key == Event ('a', False) = 0
+      | otherwise = v
 
 fallingp :: SF (Bool, GameInput) Double
-fallingp
-  = arr (\ (lnd, gi) -> (gi, lnd)) >>>
-       (first keyStat >>> arr (\ (key, lnd) -> (key, (key, lnd)))) >>>
-         (first (arr (\ key -> key == Event ('e', True)) >>> arr jump2Vel)
-            >>> arr (\ (_, (key, lnd)) -> ((key, lnd), (key, lnd))))
-           >>>
-           (first
-              (arr (\ (key, lnd) -> key == Event ('e', True) && lnd)
-                 >>> arr bool2Ev)
-              >>> arr (\ (jumping, (key, lnd)) -> (lnd, (jumping, key, lnd))))
-             >>>
-             ((first (arr (== True) >>> edge) >>>
-                 loop
-                   (arr
-                      (\ ((landed, (jumping, key, lnd)), middleOfJump) ->
-                         ((key, lnd, middleOfJump), (jumping, lnd, landed)))
-                      >>>
-                      (first
-                         (arr
-                            (\ (key, lnd, middleOfJump) ->
+fallingp =
+  arr (\(lnd, gi) -> (gi, lnd))
+  >>>
+  (first keyStat >>> arr (\(key, lnd) -> (key, (key, lnd))))
+  >>>
+  (first (arr (\key -> key == Event ('e', True)) >>> arr jump2Vel) >>> arr (\(_, (key, lnd)) -> ((key, lnd), (key, lnd))))
+  >>>
+  (first (arr (\(key, lnd) -> key == Event ('e', True) && lnd) >>> arr bool2Ev) >>> arr (\(jumping, (key, lnd)) -> (lnd, (jumping, key, lnd))))
+  >>>
+  ( ( first (arr (== True) >>> edge)
+      >>>
+      loop
+        ( arr (\((landed, (jumping, key, lnd)), middleOfJump) -> ((key, lnd, middleOfJump), (jumping, lnd, landed)))
+          >>>
+          ( first (arr (\(key, lnd, middleOfJump) -> (not middleOfJump && key == Event ('e', True) && lnd) || (not lnd && middleOfJump)) >>> (iPre False <<< identity))
+            >>>
+            arr (\(middleOfJump, (jumping, lnd, landed)) -> ((jumping, lnd, landed, middleOfJump), middleOfJump))
+          )
+        )
+    )
+    >>>
+    arr (\(jumping, lnd, landed, middleOfJump) -> ((lnd, middleOfJump), (jumping, landed)))
+  )
+  >>>
+  (first
+    (arr (\(lnd, middleOfJump) -> not lnd && not middleOfJump) >>> edge)
+    >>>
+    arr (\(notlanded, (jumping, landed)) ->
+          ( ()
+          , (jumping `tag` falling' (- 200 :: Double) (40 :: Double)) `lMerge`
+              (landed `tag` constant (- 5.0e-2)) `lMerge`
+                (notlanded `tag` falling' (- 200 :: Double) (0 :: Double))
+          )
+        )
+  )
+  >>> drSwitch (falling' (- 200 :: Double) (0 :: Double))
 
-  (not middleOfJump && key == Event ('e', True) && lnd) || (not lnd && middleOfJump))
-                            >>> (iPre False <<< identity))
-                         >>>
-                         arr
-                           (\ (middleOfJump, (jumping, lnd, landed)) ->
-                              ((jumping, lnd, landed, middleOfJump), middleOfJump)))))
-                >>>
-                arr
-                  (\ (jumping, lnd, landed, middleOfJump) ->
-                     ((lnd, middleOfJump), (jumping, landed))))
-               >>>
-               (first
-                  (arr
-                     (\ (lnd, middleOfJump) ->
-                        not lnd && not middleOfJump)
-                     >>> edge)
-                  >>>
-                  arr
-                    (\ (notlanded, (jumping, landed)) ->
-                       ((),
-                        (jumping `tag` falling' (- 200 :: Double) (40 :: Double)) `lMerge`
-                          (landed `tag` constant (- 5.0e-2))
-                          `lMerge`
-                          (notlanded `tag` falling' (- 200 :: Double) (0 :: Double)))))
-                 >>> drSwitch (falling' (- 200 :: Double) (0 :: Double))
+falling'
+  :: Double
+  -> Double
+  -> SF () Double
+falling' grav int =
+  arr (\() -> grav) >>> (integral >>> arr (+ int)) >>> integral
 
-falling' :: Double -> Double -> SF () Double
-falling' grav int
-  = arr (\ () -> grav) >>> (integral >>> arr (+ int)) >>> integral
-
-bool2Ev :: Bool -> Event ()
+bool2Ev
+  :: Bool
+  -> Event ()
 bool2Ev b
   | b = Event ()
   | otherwise = noEvent
 
-jump2Vel :: Bool -> Double
+jump2Vel
+  :: Bool
+  -> Double
 jump2Vel b
   | b = 40
   | otherwise = 0

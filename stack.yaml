@@ -14,4 +14,4 @@ extra-package-dbs: []
 nix:
   enable: true
   pure: false # use exported environment variables
-  packages: [freeglut]
+  packages: [freeglut libGL libGLU mesa_noglu.drivers]
